@@ -1,0 +1,2 @@
+<*.*>: ocaml, native, program, thread
+true: use_menhir
