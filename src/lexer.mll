@@ -47,7 +47,11 @@ rule read = parse
     | '*' { STAR }
     | ';' { SEMI_COLON }
     | ',' { COMMA }
+    | '\'' { read_char lexbuf }
     | "==" { EQUALS }
+    | "!=" { NOT_EQUAL }
+    | '<' { LESSER }
+    | "<=" { LESSER_OR_EQUAL }
     | '>' { GREATER }
     | ">=" { GREATER_OR_EQUAL }
     | '=' { EQUAL }
@@ -55,13 +59,20 @@ rule read = parse
     | '"' { read_string (Buffer.create 17) lexbuf }
     | "//" { skip_comment lexbuf; read lexbuf }
     | "/*" { skip_multiline_comment lexbuf; read lexbuf }
-    | "else" { ELSE }
-    | "if" { IF }
     | "const" { CONSTANT }
+    | "else" { ELSE }
+    | "for" { FOR }
+    | "if" { IF }
     | "return" { RETURN }
+    | "while" { WHILE }
     | id { ID (Lexing.lexeme lexbuf) }
     | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
     | eof { EOF }
+and read_char = parse
+    | '\\' 'n' '\'' { CHARACTER '\n' }
+    | [^ '\\' '\''] '\'' { CHARACTER (String.get (String.sub (Lexing.lexeme lexbuf) 0 1) 0) }
+    | _ { raise (SyntaxError ("Illegal character: " ^ Lexing.lexeme lexbuf)) }
+    | eof { raise (SyntaxError "Character is not terminated") }
 and read_string buf = parse
     | '"' { STRING (Buffer.contents buf) }
     | '\\' 'n' { Buffer.add_char buf '\n'; read_string buf lexbuf }

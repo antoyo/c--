@@ -16,27 +16,35 @@
  *)
 
 type expr =
+    | Assignment of assignment
+    | Character of char
     | Equals of expr * expr
+    | FunctionCall of function_call
     | Greater of expr * expr
     | GreaterOrEqual of expr * expr
+    | Increment of string
     | Int of int
+    | Lesser of expr * expr
+    | LesserOrEqual of expr * expr
+    | NotEqual of expr * expr
     | String of string
     | Variable of string
+    | Void
 
-type assignment = {
+and assignment = {
     variable_name: string;
     variable_value: expr;
+}
+
+and function_call = {
+    called_function_name: string;
+    arguments: expr list;
 }
 
 type constant_declaration = {
     constant_type: string;
     constant_name: string;
     constant_value: expr;
-}
-
-type function_call = {
-    called_function_name: string;
-    arguments: expr list;
 }
 
 type value_type = {
@@ -55,19 +63,35 @@ type variable_declaration = {
     variable_value: expr option;
 }
 
+type for_initialization =
+    | ForVariableDeclaration of variable_declaration
+    | ForExpression of expr
+
 type statement =
-    | Assignment of assignment
     | ConstantDeclaration of constant_declaration
-    | FunctionCall of function_call
+    | Expression of expr
+    | For of for_statement
     | If of if_statement
-    | Increment of string
     | Return of expr
     | VariableDeclaration of variable_declaration
+    | While of while_statement
+
+and for_statement = {
+    for_init: for_initialization;
+    for_condition: expr;
+    for_increment: expr;
+    for_statements: statement list;
+}
 
 and if_statement = {
     else_statements: statement list option;
     if_condition: expr;
     if_statements: statement list;
+}
+
+and while_statement = {
+    while_condition: expr;
+    while_statements: statement list;
 }
 
 type function_definition = {

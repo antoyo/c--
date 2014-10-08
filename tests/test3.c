@@ -1,19 +1,19 @@
 int main() {
     int variable = 12;
     puti(variable);
-    puts("\n");
+    puts("");
     int v2;
     v2 = 42;
     puti(v2);
-    puts("\n");
+    puts("");
     v2 = 24;
     puti(v2);
-    puts("\n");
+    puts("");
     v2++;
     puti(v2);
-    puts("\n");
+    puts("");
     const int NOMBRE = 10;
     puti(NOMBRE);
-    puts("\n");
+    puts("");
     return 0;
 }
