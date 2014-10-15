@@ -23,6 +23,7 @@ type expr =
     | Greater of expr * expr
     | GreaterOrEqual of expr * expr
     | Increment of string
+    | Indirection of indirection
     | Int of int
     | Lesser of expr * expr
     | LesserOrEqual of expr * expr
@@ -41,24 +42,28 @@ and function_call = {
     arguments: expr list;
 }
 
+and indirection = {
+    indirection_name: string;
+    indirection_index: expr;
+}
+
+type typ =
+    | Type of string
+    | Pointer of typ
+
 type constant_declaration = {
-    constant_type: string;
+    constant_type: typ;
     constant_name: string;
     constant_value: expr;
 }
 
-type value_type = {
-    base_type: string;
-    indirection_level: int;
-}
-
 type parameter = {
-    parameter_type: value_type;
+    parameter_type: typ;
     parameter_name: string;
 }
 
 type variable_declaration = {
-    variable_type: string;
+    variable_type: typ;
     variable_name: string;
     variable_value: expr option;
 }
@@ -101,7 +106,7 @@ and while_statement = {
 }
 
 type function_definition = {
-    return_type: string;
+    return_type: typ;
     function_name: string;
     parameters: parameter list;
     statements: statement list;

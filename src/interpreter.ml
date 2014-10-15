@@ -28,14 +28,7 @@ let return_values = Stack.create ()
 
 let variables = Hashtbl.create 10
 
-let rec putc = function
-    | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [Character character] -> print_string (String.make 1 character)
-    | [Variable variable] -> (match Hashtbl.find variables variable with
-        | Some Character character -> putc [Character character]
-        | _ -> print_endline "One integer parameter is expected."
-    )
-    | _ -> print_endline "One integer parameter is expected."
+let get_variable name = Hashtbl.find variables name
 
 let puti = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
@@ -49,6 +42,9 @@ let puti = function
 let puts = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
     | [String string_literal] -> print_endline string_literal
+    | [Variable variable] -> (match get_variable variable with
+        | Some (String string_value) -> print_endline string_value
+    )
     | _ -> print_endline "One string parameter is expected."
 
 let rec add_variables_from_arguments parameters arguments = match (parameters, arguments) with
@@ -59,46 +55,11 @@ let rec add_variables_from_arguments parameters arguments = match (parameters, a
             Hashtbl.add variables parameter_name (Some argument);
             add_variables_from_arguments next_parameters next_arguments
 
-let rec compare_expression expression1 expression2 = match expression1 with
-    | Character character1 -> (match expression2 with
-        | Character character2 -> (int_of_char character1) - (int_of_char character2)
-    )
-    | Int integer1 -> (match expression2 with
-        | Int integer2 -> integer1 - integer2
-        | Variable variable_name -> (match Hashtbl.find variables variable_name with
-            | Some expression -> compare_expression expression1 expression
-        )
-    )
-    | Variable variable_name -> (match Hashtbl.find variables variable_name with
-        | Some expression -> compare_expression expression expression2
-    )
-
-let is_true = function
-    | Equals (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result = 0
-    | Int integer -> integer != 0
-    | Greater (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result > 0
-    | GreaterOrEqual (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result >= 0
-    | Lesser (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result < 0
-    | LesserOrEqual (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result <= 0
-    | NotEqual (expression1, expression2) ->
-            let result = compare_expression expression1 expression2 in
-            result != 0
-
 let rec execute_expression = function
     | Assignment { variable_name; variable_value } ->
             Hashtbl.add variables variable_name (Some (execute_expression variable_value));
             variable_value
-    | Character _ | Int _ as value -> value
+    | Character _ | Int _ | String _ as value -> value
     | FunctionCall { called_function_name = "putc"; arguments = parameters } ->
             putc parameters;
             Void
@@ -136,6 +97,15 @@ let rec execute_expression = function
                 print_endline "Cannot increment this kind of value.";
                 Void
     )
+    | Indirection { indirection_name; indirection_index } -> (match get_variable indirection_name with
+        | Some String string_value -> (match indirection_index with
+            | Int integer -> Character (String.get string_value integer)
+        )
+    )
+    | Variable variable -> (match get_variable variable with
+        | Some value -> execute_expression value
+        | None -> print_endline "This variable is not declared."; Void
+    )
     | Void -> Void
 
 and execute_statement = function
@@ -144,12 +114,12 @@ and execute_statement = function
     | DoWhile { do_while_condition; do_while_statements } as do_while_statement -> 
         List.iter execute_statement do_while_statements;
         if is_true do_while_condition then execute_statement do_while_statement
-    | Expression expression -> execute_expression expression; ()
+    | Expression expression -> let _ = execute_expression expression in ()
     | For ({ for_init; for_condition; for_increment; for_statements } as for_statement) ->
             execute_for_initialization for_init;
             if is_true for_condition then (
                 List.iter execute_statement for_statements;
-                execute_expression for_increment;
+                let _ = execute_expression for_increment in
                 execute_statement (For {for_statement with for_init = ForExpression Void})
             )
     | If { else_statements; if_condition; if_statements } -> if is_true if_condition then
@@ -170,8 +140,55 @@ and execute_statement = function
         | None -> Hashtbl.add variables variable_name None
 
 and execute_for_initialization = function
-    | ForExpression expression -> execute_expression expression; ()
+    | ForExpression expression -> let _ = execute_expression expression in ()
     | ForVariableDeclaration variable_declaration -> execute_statement (VariableDeclaration variable_declaration)
+
+and compare_expression expression1 expression2 = match expression1 with
+    | Character character1 -> (match expression2 with
+        | Character character2 -> (int_of_char character1) - (int_of_char character2)
+        | Indirection _ as indirection -> compare_expression expression1 (execute_expression indirection)
+    )
+    | Indirection _ as indirection -> compare_expression (execute_expression indirection) expression2
+    | Int integer1 -> (match expression2 with
+        | Int integer2 -> integer1 - integer2
+        | Variable variable_name -> (match Hashtbl.find variables variable_name with
+            | Some expression -> compare_expression expression1 expression
+        )
+    )
+    | Variable variable_name -> (match Hashtbl.find variables variable_name with
+        | Some expression -> compare_expression expression expression2
+    )
+
+and is_true = function
+    | Equals (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result = 0
+    | Int integer -> integer != 0
+    | Greater (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result > 0
+    | GreaterOrEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result >= 0
+    | Lesser (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result < 0
+    | LesserOrEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result <= 0
+    | NotEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            result != 0
+
+and putc = function
+    | _ :: _ :: [] -> print_endline "Too much parameter."
+    | [Character character] -> print_string (String.make 1 character)
+    | [Indirection _ as indirection] -> putc [execute_expression indirection]
+    | [Variable variable] -> (match Hashtbl.find variables variable with
+        | Some Character character -> putc [Character character]
+        | _ -> print_endline "One character parameter is expected."
+    )
+    | _ -> print_endline "One character parameter is expected."
 
 let execute = function
     | FunctionDefinition { return_type; function_name; parameters; statements } as fnctn ->
@@ -180,5 +197,5 @@ let execute = function
 let interpret filename =
     let ast = FileParser.parse filename in
     List.iter execute ast;
-    execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) ;
+    let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in
     ()

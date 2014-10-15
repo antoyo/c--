@@ -62,13 +62,23 @@ condition:
     | expression1 = expr; LESSER_OR_EQUAL; expression2 = expr { LesserOrEqual (expression1, expression2) }
     | expression1 = expr; NOT_EQUAL; expression2 = expr { NotEqual (expression1, expression2) }
 
+constant_statement:
+    | CONSTANT; constant_type = typ; constant_name = ID; EQUAL; constant_value = expr; SEMI_COLON { {constant_type; constant_name; constant_value} }
+
 definitions:
-    | return_type = ID; function_name = ID; LEFT_PARENTHESIS; parameters = params; RIGHT_PARENTHESIS; LEFT_CURLY_BRACKET;
+    | return_type = typ; function_name = ID; LEFT_PARENTHESIS; parameters = params; RIGHT_PARENTHESIS; LEFT_CURLY_BRACKET;
             statements = list(instruction); RIGHT_CURLY_BRACKET; next_definitions = definitions
         { FunctionDefinition {return_type; function_name; parameters; statements} :: next_definitions }
     | EOF { [] }
 
+do_while_statement:
+    | DO; LEFT_CURLY_BRACKET; do_while_statements = list(instruction); RIGHT_CURLY_BRACKET;
+        WHILE; LEFT_PARENTHESIS; do_while_condition = expr; RIGHT_PARENTHESIS; SEMI_COLON
+        { { do_while_condition; do_while_statements } }
+
 expr:
+    | indirection_name = ID; LEFT_SQUARE_BRACKET; indirection_index = expr; RIGHT_SQUARE_BRACKET
+        { Indirection { indirection_name; indirection_index } }
     | called_function_name = ID; LEFT_PARENTHESIS; arguments = arguments; RIGHT_PARENTHESIS
         { FunctionCall {called_function_name; arguments} }
     | name = ID { Variable name }
@@ -100,20 +110,19 @@ if_else_statement:
         { { statement with else_statements = Some else_statements } }
 
 instruction:
-    | statement = while_statement { While statement }
+    | statement = constant_statement { ConstantDeclaration statement }
     | statement = do_while_statement { DoWhile statement }
     | statement = for_statement { For statement }
     | statement = if_else_statement { If statement }
     | statement = if_statement { If statement }
-    | variable = variable_type_name; EQUAL; variable_value = expr; SEMI_COLON { VariableDeclaration {variable with variable_value = Some variable_value} }
-    | variable = variable_type_name; SEMI_COLON { VariableDeclaration variable }
-    | CONSTANT; constant_type = ID; constant_name = ID; EQUAL; constant_value = expr; SEMI_COLON { ConstantDeclaration {constant_type; constant_name; constant_value} }
-    | RETURN; expression = expr; SEMI_COLON { Return expression }
+    | statement = return_statement { Return statement }
+    | statement = variable_statement { VariableDeclaration statement }
+    | statement = while_statement { While statement }
     | expression = expr; SEMI_COLON { Expression expression }
 
 param:
-    | base_type = ID; parameter_name = ID { {parameter_type = {base_type; indirection_level = 0}; parameter_name} }
-    | base_type = ID; STAR; parameter_name = ID; LEFT_SQUARE_BRACKET; RIGHT_SQUARE_BRACKET { {parameter_type = {base_type; indirection_level = 2}; parameter_name} }
+    | parameter_type = typ; parameter_name = ID { {parameter_type; parameter_name} }
+    | parameter_type = typ; parameter_name = ID; LEFT_SQUARE_BRACKET; RIGHT_SQUARE_BRACKET { {parameter_type; parameter_name} }
 
 params:
     parameters = separated_list(COMMA, param) { parameters }
@@ -121,13 +130,19 @@ params:
 prog:
     | i = definitions { i }
 
-variable_type_name:
-    | variable_type = ID; variable_name = ID { {variable_type; variable_name; variable_value = None} }
+return_statement:
+    | RETURN; expression = expr; SEMI_COLON { expression }
 
-do_while_statement:
-    | DO; LEFT_CURLY_BRACKET; do_while_statements = list(instruction); RIGHT_CURLY_BRACKET;
-        WHILE; LEFT_PARENTHESIS; do_while_condition = expr; RIGHT_PARENTHESIS; SEMI_COLON
-        { { do_while_condition; do_while_statements } }
+typ:
+    | current_type = typ; STAR { Pointer current_type }
+    | base_type = ID { Type base_type }
+
+variable_statement:
+    | variable = variable_type_name; EQUAL; variable_value = expr; SEMI_COLON { {variable with variable_value = Some variable_value} }
+    | variable = variable_type_name; SEMI_COLON { variable }
+
+variable_type_name:
+    | variable_type = typ; variable_name = ID { {variable_type; variable_name; variable_value = None} }
 
 while_statement:
     | WHILE; LEFT_PARENTHESIS; while_condition = expr; RIGHT_PARENTHESIS; LEFT_CURLY_BRACKET;
