@@ -69,12 +69,18 @@ type for_initialization =
 
 type statement =
     | ConstantDeclaration of constant_declaration
+    | DoWhile of do_while_statement
     | Expression of expr
     | For of for_statement
     | If of if_statement
     | Return of expr
     | VariableDeclaration of variable_declaration
     | While of while_statement
+
+and do_while_statement = {
+    do_while_condition: expr;
+    do_while_statements: statement list;
+}
 
 and for_statement = {
     for_init: for_initialization;

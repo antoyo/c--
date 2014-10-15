@@ -141,6 +141,9 @@ let rec execute_expression = function
 and execute_statement = function
     | ConstantDeclaration { constant_type; constant_name; constant_value } ->
             Hashtbl.add variables constant_name (Some constant_value)
+    | DoWhile { do_while_condition; do_while_statements } as do_while_statement -> 
+        List.iter execute_statement do_while_statements;
+        if is_true do_while_condition then execute_statement do_while_statement
     | Expression expression -> execute_expression expression; ()
     | For ({ for_init; for_condition; for_increment; for_statements } as for_statement) ->
             execute_for_initialization for_init;

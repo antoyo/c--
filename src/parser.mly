@@ -21,6 +21,7 @@
 %token <string> STRING
 %token COMMA
 %token CONSTANT
+%token DO
 %token ELSE
 %token EOF
 %token EQUAL
@@ -100,6 +101,7 @@ if_else_statement:
 
 instruction:
     | statement = while_statement { While statement }
+    | statement = do_while_statement { DoWhile statement }
     | statement = for_statement { For statement }
     | statement = if_else_statement { If statement }
     | statement = if_statement { If statement }
@@ -121,6 +123,11 @@ prog:
 
 variable_type_name:
     | variable_type = ID; variable_name = ID { {variable_type; variable_name; variable_value = None} }
+
+do_while_statement:
+    | DO; LEFT_CURLY_BRACKET; do_while_statements = list(instruction); RIGHT_CURLY_BRACKET;
+        WHILE; LEFT_PARENTHESIS; do_while_condition = expr; RIGHT_PARENTHESIS; SEMI_COLON
+        { { do_while_condition; do_while_statements } }
 
 while_statement:
     | WHILE; LEFT_PARENTHESIS; while_condition = expr; RIGHT_PARENTHESIS; LEFT_CURLY_BRACKET;

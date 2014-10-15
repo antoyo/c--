@@ -60,6 +60,7 @@ rule read = parse
     | "//" { skip_comment lexbuf; read lexbuf }
     | "/*" { skip_multiline_comment lexbuf; read lexbuf }
     | "const" { CONSTANT }
+    | "do" { DO }
     | "else" { ELSE }
     | "for" { FOR }
     | "if" { IF }
