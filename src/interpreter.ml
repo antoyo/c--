@@ -38,7 +38,7 @@ let declare_variable name = Hashtbl.add variables name None
 
 let get_variable name = Hashtbl.find variables name
 
-let set_variable_value name value = Hashtbl.add variables name (Some value)
+let set_variable_value name value = Hashtbl.replace variables name (Some value)
 
 let puti = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
