@@ -24,16 +24,26 @@ open C
 
 let functions = Hashtbl.create 10
 
+let add_function name value = Hashtbl.add functions name (Some value)
+
+let declare_function name = Hashtbl.add functions name None
+
+let get_function name = Hashtbl.find functions name
+
 let return_values = Stack.create ()
 
 let variables = Hashtbl.create 10
 
+let declare_variable name = Hashtbl.add variables name None
+
 let get_variable name = Hashtbl.find variables name
+
+let set_variable_value name value = Hashtbl.add variables name (Some value)
 
 let puti = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
     | [Int integer] -> print_int integer
-    | [Variable variable] -> (match Hashtbl.find variables variable with
+    | [Variable variable] -> (match get_variable variable with
         | Some Int integer -> print_int integer
         | _ -> print_endline "One integer parameter is expected."
     )
@@ -52,12 +62,12 @@ let rec add_variables_from_arguments parameters arguments = match (parameters, a
     | ([], _) -> print_endline "Too much arguments."
     | (_, []) -> print_endline "Missing arguments."
     | ({parameter_type; parameter_name} :: next_parameters, argument :: next_arguments) ->
-            Hashtbl.add variables parameter_name (Some argument);
+            set_variable_value parameter_name argument;
             add_variables_from_arguments next_parameters next_arguments
 
 let rec execute_expression = function
     | Assignment { variable_name; variable_value } ->
-            Hashtbl.add variables variable_name (Some (execute_expression variable_value));
+            set_variable_value variable_name (execute_expression variable_value);
             variable_value
     | Character _ | Int _ | String _ as value -> value
     | FunctionCall { called_function_name = "putc"; arguments = parameters } ->
@@ -69,14 +79,14 @@ let rec execute_expression = function
     | FunctionCall { called_function_name = "puts"; arguments = parameters } ->
             puts parameters;
             Void
-    | FunctionCall { called_function_name; arguments } -> (match Hashtbl.find functions called_function_name with
+    | FunctionCall { called_function_name; arguments } -> (match get_function called_function_name with
             | Some (FunctionDefinition {return_type; function_name; parameters; statements}) ->
                     add_variables_from_arguments parameters arguments;
                     List.iter execute_statement statements;
                     (match Stack.pop return_values with
                     | Int _ as value -> value
                     | Variable variable_name ->
-                            (match Hashtbl.find variables variable_name with
+                            (match get_variable variable_name with
                             | Some expression -> expression
                             | None -> print_endline ("No variable named " ^ variable_name ^ "."); Void
                             )
@@ -85,13 +95,13 @@ let rec execute_expression = function
                     print_endline ("The function " ^ called_function_name ^ " does not exist.");
                     Void
     )
-    | Increment variable_name -> (match Hashtbl.find variables variable_name with
+    | Increment variable_name -> (match get_variable variable_name with
         | Some Int integer ->
-                Hashtbl.replace variables variable_name (Some (Int (integer + 1)));
+                set_variable_value variable_name (Int (integer + 1));
                 Int integer
         | Some Character character ->
                 let new_character = char_of_int (int_of_char character + 1) in
-                Hashtbl.replace variables variable_name (Some (Character (new_character)));
+                set_variable_value variable_name (Character (new_character));
                 Character character
         | _ ->
                 print_endline "Cannot increment this kind of value.";
@@ -110,7 +120,7 @@ let rec execute_expression = function
 
 and execute_statement = function
     | ConstantDeclaration { constant_type; constant_name; constant_value } ->
-            Hashtbl.add variables constant_name (Some constant_value)
+            set_variable_value constant_name constant_value
     | DoWhile { do_while_condition; do_while_statements } as do_while_statement -> 
         List.iter execute_statement do_while_statements;
         if is_true do_while_condition then execute_statement do_while_statement
@@ -136,8 +146,8 @@ and execute_statement = function
     | Return value ->
             Stack.push value return_values
     | VariableDeclaration { variable_type; variable_name; variable_value } -> match variable_value with
-        | Some value -> Hashtbl.add variables variable_name (Some (execute_expression value))
-        | None -> Hashtbl.add variables variable_name None
+        | Some value -> set_variable_value variable_name (execute_expression value)
+        | None -> declare_variable variable_name
 
 and execute_for_initialization = function
     | ForExpression expression -> let _ = execute_expression expression in ()
@@ -151,11 +161,11 @@ and compare_expression expression1 expression2 = match expression1 with
     | Indirection _ as indirection -> compare_expression (execute_expression indirection) expression2
     | Int integer1 -> (match expression2 with
         | Int integer2 -> integer1 - integer2
-        | Variable variable_name -> (match Hashtbl.find variables variable_name with
+        | Variable variable_name -> (match get_variable variable_name with
             | Some expression -> compare_expression expression1 expression
         )
     )
-    | Variable variable_name -> (match Hashtbl.find variables variable_name with
+    | Variable variable_name -> (match get_variable variable_name with
         | Some expression -> compare_expression expression expression2
     )
 
@@ -184,7 +194,7 @@ and putc = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
     | [Character character] -> print_string (String.make 1 character)
     | [Indirection _ as indirection] -> putc [execute_expression indirection]
-    | [Variable variable] -> (match Hashtbl.find variables variable with
+    | [Variable variable] -> (match get_variable variable with
         | Some Character character -> putc [Character character]
         | _ -> print_endline "One character parameter is expected."
     )
@@ -192,7 +202,7 @@ and putc = function
 
 let execute = function
     | FunctionDefinition { return_type; function_name; parameters; statements } as fnctn ->
-            Hashtbl.add functions function_name (Some fnctn)
+            add_function function_name fnctn
 
 let interpret filename =
     let ast = FileParser.parse filename in
