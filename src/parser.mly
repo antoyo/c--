@@ -37,6 +37,7 @@
 %token LESSER_OR_EQUAL
 %token NOT_EQUAL
 %token RETURN
+%token PLUS
 %token PLUS_PLUS
 %token RIGHT_CURLY_BRACKET
 %token RIGHT_PARENTHESIS
@@ -85,6 +86,7 @@ expr:
     | character = CHARACTER { Character character }
     | integer = INT { Int integer }
     | conditional_expression = condition { conditional_expression }
+    | operation = oper { Operation operation }
     | string_literal = STRING { String string_literal }
     | variable_name = ID; EQUAL; variable_value = expr { Assignment {variable_name; variable_value} }
     | variable_name = ID; PLUS_PLUS { Increment variable_name }
@@ -119,6 +121,10 @@ instruction:
     | statement = variable_statement { VariableDeclaration statement }
     | statement = while_statement { While statement }
     | expression = expr; SEMI_COLON { Expression expression }
+
+oper:
+    | expression1 = expr; PLUS; expression2 = expr
+        { Addition (expression1, expression2) }
 
 param:
     | parameter_type = typ; parameter_name = ID { {parameter_type; parameter_name} }

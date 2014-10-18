@@ -40,23 +40,6 @@ let get_variable name = Hashtbl.find variables name
 
 let set_variable_value name value = Hashtbl.replace variables name (Some value)
 
-let puti = function
-    | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [Int integer] -> print_int integer
-    | [Variable variable] -> (match get_variable variable with
-        | Some Int integer -> print_int integer
-        | _ -> print_endline "One integer parameter is expected."
-    )
-    | _ -> print_endline "One integer parameter is expected."
-
-let puts = function
-    | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [String string_literal] -> print_endline string_literal
-    | [Variable variable] -> (match get_variable variable with
-        | Some (String string_value) -> print_endline string_value
-    )
-    | _ -> print_endline "One string parameter is expected."
-
 let rec add_variables_from_arguments parameters arguments = match (parameters, arguments) with
     | ([], []) -> ()
     | ([], _) -> print_endline "Too much arguments."
@@ -83,14 +66,7 @@ let rec execute_expression = function
             | Some (FunctionDefinition {return_type; function_name; parameters; statements}) ->
                     add_variables_from_arguments parameters arguments;
                     List.iter execute_statement statements;
-                    (match Stack.pop return_values with
-                    | Int _ as value -> value
-                    | Variable variable_name ->
-                            (match get_variable variable_name with
-                            | Some expression -> expression
-                            | None -> print_endline ("No variable named " ^ variable_name ^ "."); Void
-                            )
-                    )
+                    execute_expression (Stack.pop return_values)
             | None ->
                     print_endline ("The function " ^ called_function_name ^ " does not exist.");
                     Void
@@ -112,11 +88,20 @@ let rec execute_expression = function
             | Int integer -> Character (String.get string_value integer)
         )
     )
+    | Operation operation -> execute_operation operation
     | Variable variable -> (match get_variable variable with
         | Some value -> execute_expression value
         | None -> print_endline "This variable is not declared."; Void
     )
     | Void -> Void
+
+and execute_operation = function
+    | Addition (expression1, expression2) ->
+            let expression1 = execute_expression expression1 in
+            let expression2 = execute_expression expression2 in
+            (match (expression1, expression2) with
+            | (Int value1, Int value2) -> Int (value1 + value2)
+            )
 
 and execute_statement = function
     | ConstantDeclaration { constant_type; constant_name; constant_value } ->
@@ -153,20 +138,12 @@ and execute_for_initialization = function
     | ForExpression expression -> let _ = execute_expression expression in ()
     | ForVariableDeclaration variable_declaration -> execute_statement (VariableDeclaration variable_declaration)
 
-and compare_expression expression1 expression2 = match expression1 with
-    | Character character1 -> (match expression2 with
-        | Character character2 -> (int_of_char character1) - (int_of_char character2)
-        | Indirection _ as indirection -> compare_expression expression1 (execute_expression indirection)
-    )
-    | Indirection _ as indirection -> compare_expression (execute_expression indirection) expression2
-    | Int integer1 -> (match expression2 with
-        | Int integer2 -> integer1 - integer2
-        | Variable variable_name -> (match get_variable variable_name with
-            | Some expression -> compare_expression expression1 expression
-        )
-    )
-    | Variable variable_name -> (match get_variable variable_name with
-        | Some expression -> compare_expression expression expression2
+and compare_expression expression1 expression2 = 
+    let value1 = execute_expression expression1 in
+    let value2 = execute_expression expression2 in
+    (match (value1, value2) with
+        | (Character character1, Character character2) -> (int_of_char character1) - (int_of_char character2)
+        | (Int integer1, Int integer2) -> integer1 - integer2
     )
 
 and is_true = function
@@ -192,13 +169,27 @@ and is_true = function
 
 and putc = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [Character character] -> print_string (String.make 1 character)
-    | [Indirection _ as indirection] -> putc [execute_expression indirection]
-    | [Variable variable] -> (match get_variable variable with
-        | Some Character character -> putc [Character character]
+    | [expression] -> (match execute_expression expression with
+        | Character character -> print_string (String.make 1 character)
         | _ -> print_endline "One character parameter is expected."
     )
     | _ -> print_endline "One character parameter is expected."
+
+and puti = function
+    | _ :: _ :: [] -> print_endline "Too much parameter."
+    | [expression] -> (match execute_expression expression with
+        | Int integer -> print_int integer
+        | _ -> print_endline "One integer parameter is expected."
+    )
+    | _ -> print_endline "One integer parameter is expected."
+
+and puts = function
+    | _ :: _ :: [] -> print_endline "Too much parameter."
+    | [expression] -> (match execute_expression expression with
+        | String string_literal -> print_endline string_literal
+        | _ -> print_endline "One string parameter is expected."
+    )
+    | _ -> print_endline "One string parameter is expected."
 
 let execute = function
     | FunctionDefinition { return_type; function_name; parameters; statements } as fnctn ->

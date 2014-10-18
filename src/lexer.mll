@@ -56,6 +56,7 @@ rule read = parse
     | ">=" { GREATER_OR_EQUAL }
     | '=' { EQUAL }
     | "++" { PLUS_PLUS }
+    | '+' { PLUS }
     | '"' { read_string (Buffer.create 17) lexbuf }
     | "//" { skip_comment lexbuf; read lexbuf }
     | "/*" { skip_multiline_comment lexbuf; read lexbuf }

@@ -28,6 +28,7 @@ type expr =
     | Lesser of expr * expr
     | LesserOrEqual of expr * expr
     | NotEqual of expr * expr
+    | Operation of operation
     | String of string
     | Variable of string
     | Void
@@ -46,6 +47,9 @@ and indirection = {
     indirection_name: string;
     indirection_index: expr;
 }
+
+and operation =
+    | Addition of expr * expr
 
 type typ =
     | Type of string
