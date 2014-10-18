@@ -44,7 +44,6 @@ rule read = parse
     | ')' { RIGHT_PARENTHESIS }
     | '[' { LEFT_SQUARE_BRACKET }
     | ']' { RIGHT_SQUARE_BRACKET }
-    | '*' { STAR }
     | ';' { SEMI_COLON }
     | ',' { COMMA }
     | '\'' { read_char lexbuf }
@@ -55,8 +54,18 @@ rule read = parse
     | '>' { GREATER }
     | ">=" { GREATER_OR_EQUAL }
     | '=' { EQUAL }
-    | "++" { PLUS_PLUS }
     | '+' { PLUS }
+    | "++" { PLUS_PLUS }
+    | "+=" { PLUS_EQUAL }
+    | '-' { MINUS }
+    | "--" { MINUS_MINUS }
+    | "-=" { MINUS_EQUAL }
+    | '*' { STAR }
+    | "*=" { STAR_EQUAL }
+    | '/' { SLASH }
+    | "/=" { SLASH_EQUAL }
+    | '%' { PERCENT }
+    | "%=" { PERCENT_EQUAL }
     | '"' { read_string (Buffer.create 17) lexbuf }
     | "//" { skip_comment lexbuf; read lexbuf }
     | "/*" { skip_multiline_comment lexbuf; read lexbuf }

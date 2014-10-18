@@ -48,11 +48,26 @@ let rec add_variables_from_arguments parameters arguments = match (parameters, a
             set_variable_value parameter_name argument;
             add_variables_from_arguments next_parameters next_arguments
 
+let change_variable variable_name operation = match get_variable variable_name with
+        | Some Int integer ->
+                set_variable_value variable_name (Int (operation integer));
+                Int integer
+        | Some Character character ->
+                let new_character = char_of_int (operation (int_of_char character)) in
+                set_variable_value variable_name (Character (new_character));
+                Character character
+        | _ ->
+                print_endline "Cannot increment this kind of value.";
+                Void
+    
+
 let rec execute_expression = function
     | Assignment { variable_name; variable_value } ->
             set_variable_value variable_name (execute_expression variable_value);
             variable_value
+    | AssignmentOperation assignment_operation -> execute_assignment_operation assignment_operation
     | Character _ | Int _ | String _ as value -> value
+    | Decrement variable_name -> change_variable variable_name (fun value -> value - 1)
     | FunctionCall { called_function_name = "putc"; arguments = parameters } ->
             putc parameters;
             Void
@@ -71,18 +86,7 @@ let rec execute_expression = function
                     print_endline ("The function " ^ called_function_name ^ " does not exist.");
                     Void
     )
-    | Increment variable_name -> (match get_variable variable_name with
-        | Some Int integer ->
-                set_variable_value variable_name (Int (integer + 1));
-                Int integer
-        | Some Character character ->
-                let new_character = char_of_int (int_of_char character + 1) in
-                set_variable_value variable_name (Character (new_character));
-                Character character
-        | _ ->
-                print_endline "Cannot increment this kind of value.";
-                Void
-    )
+    | Increment variable_name -> change_variable variable_name (fun value -> value + 1)
     | Indirection { indirection_name; indirection_index } -> (match get_variable indirection_name with
         | Some String string_value -> (match indirection_index with
             | Int integer -> Character (String.get string_value integer)
@@ -95,13 +99,33 @@ let rec execute_expression = function
     )
     | Void -> Void
 
-and execute_operation = function
-    | Addition (expression1, expression2) ->
-            let expression1 = execute_expression expression1 in
-            let expression2 = execute_expression expression2 in
-            (match (expression1, expression2) with
-            | (Int value1, Int value2) -> Int (value1 + value2)
-            )
+and execute_operation operation =
+    let execute_operation expression1 expression2 operator =
+        let expression1 = execute_expression expression1 in
+        let expression2 = execute_expression expression2 in
+        (match (expression1, expression2) with
+            | (Int value1, Int value2) -> Int (operator value1 value2)
+        )
+    in
+    (match operation with
+        | Addition (expression1, expression2) -> execute_operation expression1 expression2 (+)
+        | Subtraction (expression1, expression2) -> execute_operation expression1 expression2 (-)
+        | Multiplication (expression1, expression2) -> execute_operation expression1 expression2 ( * )
+        | Division (expression1, expression2) -> execute_operation expression1 expression2 (/)
+        | Modulo (expression1, expression2) -> execute_operation expression1 expression2 (mod)
+    )
+
+and execute_assignment_operation assignment_operation =
+    let (variable_name, new_value) = (match assignment_operation with
+        | AssignAdd (variable_name, value) -> (variable_name, execute_operation (Addition (Variable variable_name, value)))
+        | AssignSubtract (variable_name, value) -> (variable_name, execute_operation (Subtraction (Variable variable_name, value)))
+        | AssignMultiply (variable_name, value) -> (variable_name, execute_operation (Multiplication (Variable variable_name, value)))
+        | AssignDivide (variable_name, value) -> (variable_name, execute_operation (Division (Variable variable_name, value)))
+        | AssignModulo (variable_name, value) -> (variable_name, execute_operation (Modulo (Variable variable_name, value)))
+    )
+    in
+    set_variable_value variable_name new_value;
+    new_value
 
 and execute_statement = function
     | ConstantDeclaration { constant_type; constant_name; constant_value } ->

@@ -17,7 +17,9 @@
 
 type expr =
     | Assignment of assignment
+    | AssignmentOperation of assignment_operation
     | Character of char
+    | Decrement of string
     | Equals of expr * expr
     | FunctionCall of function_call
     | Greater of expr * expr
@@ -38,6 +40,13 @@ and assignment = {
     variable_value: expr;
 }
 
+and assignment_operation =
+    | AssignAdd of string * expr
+    | AssignSubtract of string * expr
+    | AssignMultiply of string * expr
+    | AssignDivide of string * expr
+    | AssignModulo of string * expr
+
 and function_call = {
     called_function_name: string;
     arguments: expr list;
@@ -50,6 +59,10 @@ and indirection = {
 
 and operation =
     | Addition of expr * expr
+    | Subtraction of expr * expr
+    | Multiplication of expr * expr
+    | Division of expr * expr
+    | Modulo of expr * expr
 
 type typ =
     | Type of string

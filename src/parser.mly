@@ -35,15 +35,24 @@
 %token LEFT_SQUARE_BRACKET
 %token LESSER
 %token LESSER_OR_EQUAL
+%token MINUS
+%token MINUS_EQUAL
+%token MINUS_MINUS
 %token NOT_EQUAL
-%token RETURN
+%token PERCENT
+%token PERCENT_EQUAL
 %token PLUS
+%token PLUS_EQUAL
 %token PLUS_PLUS
+%token RETURN
 %token RIGHT_CURLY_BRACKET
 %token RIGHT_PARENTHESIS
 %token RIGHT_SQUARE_BRACKET
 %token SEMI_COLON
+%token SLASH
+%token SLASH_EQUAL
 %token STAR
+%token STAR_EQUAL
 %token WHILE
 
 %start <C.definition list> prog
@@ -54,6 +63,13 @@
 
 arguments:
     parameters = separated_list(COMMA, expr) { parameters }
+
+assign_oper:
+    | variable_name = ID; PLUS_EQUAL; variable_value = expr { AssignAdd (variable_name, variable_value) }
+    | variable_name = ID; MINUS_EQUAL; variable_value = expr { AssignSubtract (variable_name, variable_value) }
+    | variable_name = ID; STAR_EQUAL; variable_value = expr { AssignMultiply (variable_name, variable_value) }
+    | variable_name = ID; SLASH_EQUAL; variable_value = expr { AssignDivide (variable_name, variable_value) }
+    | variable_name = ID; PERCENT_EQUAL; variable_value = expr { AssignModulo (variable_name, variable_value) }
 
 condition:
     | expression1 = expr; EQUALS; expression2 = expr { Equals (expression1, expression2) }
@@ -87,9 +103,11 @@ expr:
     | integer = INT { Int integer }
     | conditional_expression = condition { conditional_expression }
     | operation = oper { Operation operation }
+    | assignment_operation = assign_oper { AssignmentOperation assignment_operation }
     | string_literal = STRING { String string_literal }
     | variable_name = ID; EQUAL; variable_value = expr { Assignment {variable_name; variable_value} }
     | variable_name = ID; PLUS_PLUS { Increment variable_name }
+    | variable_name = ID; MINUS_MINUS { Decrement variable_name }
 
 for_statement:
     | FOR; LEFT_PARENTHESIS; for_init = for_initialization; SEMI_COLON
@@ -125,6 +143,14 @@ instruction:
 oper:
     | expression1 = expr; PLUS; expression2 = expr
         { Addition (expression1, expression2) }
+    | expression1 = expr; MINUS; expression2 = expr
+        { Subtraction (expression1, expression2) }
+    | expression1 = expr; STAR; expression2 = expr
+        { Multiplication (expression1, expression2) }
+    | expression1 = expr; SLASH; expression2 = expr
+        { Division (expression1, expression2) }
+    | expression1 = expr; PERCENT; expression2 = expr
+        { Modulo (expression1, expression2) }
 
 param:
     | parameter_type = typ; parameter_name = ID { {parameter_type; parameter_name} }
