@@ -44,6 +44,7 @@ rule read = parse
     | ')' { RIGHT_PARENTHESIS }
     | '[' { LEFT_SQUARE_BRACKET }
     | ']' { RIGHT_SQUARE_BRACKET }
+    | ':' { COLON }
     | ';' { SEMI_COLON }
     | ',' { COMMA }
     | '\'' { read_char lexbuf }
@@ -69,12 +70,16 @@ rule read = parse
     | '"' { read_string (Buffer.create 17) lexbuf }
     | "//" { skip_comment lexbuf; read lexbuf }
     | "/*" { skip_multiline_comment lexbuf; read lexbuf }
+    | "break" { BREAK }
+    | "case" { CASE }
     | "const" { CONSTANT }
+    | "default" { DEFAULT }
     | "do" { DO }
     | "else" { ELSE }
     | "for" { FOR }
     | "if" { IF }
     | "return" { RETURN }
+    | "switch" { SWITCH }
     | "while" { WHILE }
     | id { ID (Lexing.lexeme lexbuf) }
     | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

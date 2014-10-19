@@ -90,14 +90,21 @@ type for_initialization =
     | ForExpression of expr
 
 type statement =
+    | Break
     | ConstantDeclaration of constant_declaration
     | DoWhile of do_while_statement
     | Expression of expr
     | For of for_statement
     | If of if_statement
     | Return of expr
+    | Switch of switch_statement
     | VariableDeclaration of variable_declaration
     | While of while_statement
+
+and case = {
+    case_condition: expr;
+    case_instructions: statement list;
+}
 
 and do_while_statement = {
     do_while_condition: expr;
@@ -115,6 +122,15 @@ and if_statement = {
     else_statements: statement list option;
     if_condition: expr;
     if_statements: statement list;
+}
+
+and switch_condition =
+    | Case of case
+    | Default of statement list
+
+and switch_statement = {
+    switch_expression: expr;
+    switch_conditions: switch_condition list;
 }
 
 and while_statement = {

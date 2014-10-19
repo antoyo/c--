@@ -19,8 +19,12 @@
 %token <int> INT
 %token <string> ID
 %token <string> STRING
+%token BREAK
+%token CASE
+%token COLON
 %token COMMA
 %token CONSTANT
+%token DEFAULT
 %token DO
 %token ELSE
 %token EOF
@@ -53,6 +57,7 @@
 %token SLASH_EQUAL
 %token STAR
 %token STAR_EQUAL
+%token SWITCH
 %token WHILE
 
 %start <C.definition list> prog
@@ -70,6 +75,12 @@ assign_oper:
     | variable_name = ID; STAR_EQUAL; variable_value = expr { AssignMultiply (variable_name, variable_value) }
     | variable_name = ID; SLASH_EQUAL; variable_value = expr { AssignDivide (variable_name, variable_value) }
     | variable_name = ID; PERCENT_EQUAL; variable_value = expr { AssignModulo (variable_name, variable_value) }
+
+case:
+    | CASE; case_condition = expr; COLON; case_instructions = list(instruction)
+        { Case { case_condition; case_instructions } }
+    | DEFAULT; COLON; instructions = list(instruction)
+        { Default instructions }
 
 condition:
     | expression1 = expr; EQUALS; expression2 = expr { Equals (expression1, expression2) }
@@ -130,12 +141,14 @@ if_else_statement:
         { { statement with else_statements = Some else_statements } }
 
 instruction:
+    | BREAK; SEMI_COLON { Break }
     | statement = constant_statement { ConstantDeclaration statement }
     | statement = do_while_statement { DoWhile statement }
     | statement = for_statement { For statement }
     | statement = if_else_statement { If statement }
     | statement = if_statement { If statement }
     | statement = return_statement { Return statement }
+    | statement = switch_statement { Switch statement }
     | statement = variable_statement { VariableDeclaration statement }
     | statement = while_statement { While statement }
     | expression = expr; SEMI_COLON { Expression expression }
@@ -145,8 +158,8 @@ oper:
         { Addition (expression1, expression2) }
     | expression1 = expr; MINUS; expression2 = expr
         { Subtraction (expression1, expression2) }
-    | expression1 = expr; STAR; expression2 = expr
-        { Multiplication (expression1, expression2) }
+    (*| expression1 = expr; STAR; expression2 = expr
+        { Multiplication (expression1, expression2) }*)
     | expression1 = expr; SLASH; expression2 = expr
         { Division (expression1, expression2) }
     | expression1 = expr; PERCENT; expression2 = expr
@@ -164,6 +177,11 @@ prog:
 
 return_statement:
     | RETURN; expression = expr; SEMI_COLON { expression }
+
+switch_statement:
+    | SWITCH; LEFT_PARENTHESIS; switch_expression = expr; RIGHT_PARENTHESIS; LEFT_CURLY_BRACKET;
+        switch_conditions = list(case); RIGHT_CURLY_BRACKET
+        { { switch_expression; switch_conditions } }
 
 typ:
     | current_type = typ; STAR { Pointer current_type }

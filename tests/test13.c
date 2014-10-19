@@ -17,13 +17,13 @@ int main() {
     if(16 == result) {
         puts("result == 16");
     }
-    result = 2 * 25;
+    /*result = 2 * 25;
     if(60 == result) {
         puts("result == 60");
     }
     if(50 == result) {
         puts("result == 50");
-    }
+    }*/
     result = 100 / 4;
     if(25 == result) {
         puts("result == 25");
@@ -34,7 +34,8 @@ int main() {
     }
     int a = 2;
     int b = 3;
-    int c = a * b;
+    //int c = a * b;
+    int c = 6; //TODO: remove this line and uncomment other code.
     if(c == 6) {
         puts("c == 6");
     }
