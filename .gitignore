@@ -1,3 +1,5 @@
-*.native
-_build
 *.swp
+.omakedb
+.omakedb.lock
+OMakefile.omc
+OMakeroot.omc

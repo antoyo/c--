@@ -1,0 +1,18 @@
+PROGRAM = c--
+
+OCAMLFLAGS =
+
+MENHIR_ENABLED = true
+
+NATIVE_ENABLED = true
+BYTE_ENABLED = false
+
+.SUBDIRS: src
+	FILES = $(removesuffix $(glob *.ml *.mly *.mll))
+	OCamlProgram($(PROGRAM), $(FILES))
+
+	.DEFAULT: $(PROGRAM)
+
+	.PHONY: clean
+	clean:
+		rm -f $(filter-proper-targets $(glob $(addsuffix .*, $(FILES)))) $(PROGRAM) $(PROGRAM).opt

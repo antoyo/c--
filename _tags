@@ -1,3 +1,0 @@
-<*.*>: ocaml, native, program, thread
-<src>: include
-true: use_menhir
