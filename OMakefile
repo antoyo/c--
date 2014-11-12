@@ -8,7 +8,7 @@ NATIVE_ENABLED = true
 BYTE_ENABLED = false
 
 .SUBDIRS: src
-	FILES = $(removesuffix $(glob *.ml *.mly *.mll))
+	FILES = $(removesuffix $(glob *.ml))
 	OCamlProgram($(PROGRAM), $(FILES))
 
 	.DEFAULT: $(PROGRAM)

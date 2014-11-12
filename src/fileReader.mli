@@ -15,23 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-let rec get_all_tokens tokens =
-    match Lexer.next_token () with
-    | Lexer.Eof _ -> tokens @ [Lexer.eof ()]
-    | token -> get_all_tokens (tokens @ [token])
-    | exception Lexer.UnexpectedCharacter (character, (line, column)) ->
-            print_int line;
-            print_char ':';
-            print_int column;
-            print_string ": Unexpected character `";
-            print_char character;
-            print_string "` on line ";
-            print_int line;
-            print_endline ".";
-            []
+val eof : char
 
-let parse filename =
-    Lexer.lex filename;
-    let tokens = get_all_tokens [] in
-    Lexer.close;
-    tokens
+val adjust_start_position : unit -> unit
+
+val close_file : unit -> unit
+
+val file_position : unit -> int * int
+
+val get_char : unit -> char
+
+val next_char : unit -> unit
+
+val open_file : string -> unit
+
+val previous_char : unit -> unit
+
+val substring : unit -> string

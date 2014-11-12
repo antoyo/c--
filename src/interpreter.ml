@@ -16,8 +16,7 @@
  *)
 
 (*
- * TODO: Create a binding for libjit.
- * TODO: Implement a JIT compiler.
+ * TODO: Create a JIT compiler.
  *)
 
 open C
@@ -270,8 +269,45 @@ let execute = function
     | FunctionDefinition { return_type; function_name; parameters; statements } as fnctn ->
             add_function function_name fnctn
 
+open Lexer
+
+let print_token = function
+    | Eof _ -> print_endline "eof"
+    | LeftCurlyBracket _ -> print_endline "{"
+    | RightCurlyBracket _ -> print_endline "}"
+    | LeftParenthesis _ -> print_endline "("
+    | RightParenthesis _ -> print_endline ")"
+    | LeftSquareBracket _ -> print_endline "["
+    | RightSquareBracket _ -> print_endline "]"
+    | Colon _ -> print_endline ":"
+    | SemiColon _ -> print_endline ";"
+    | Comma _ -> print_endline ","
+    | Greater _ -> print_endline ">"
+    | GreaterOrEqual _ -> print_endline ">="
+    | Lesser _ -> print_endline "<"
+    | LesserOrEqual _ -> print_endline "<="
+    | NotEqual _ -> print_endline "!="
+    | IsEqual _ -> print_endline "=="
+    | Equal _ -> print_endline "="
+    | Plus _ -> print_endline "+"
+    | PlusEqual _ -> print_endline "+="
+    | Minus _ -> print_endline "-"
+    | MinusEqual _ -> print_endline "-="
+    | Times _ -> print_endline "*"
+    | TimesEqual _ -> print_endline "*="
+    | Divide _ -> print_endline "/"
+    | DivideEqual _ -> print_endline "/="
+    | Modulo _ -> print_endline "%"
+    | ModuloEqual _ -> print_endline "%="
+    | Int (n, _) -> print_int n; print_endline ""
+    | Float (n, _) -> print_float n; print_endline ""
+    | Identifier (i, _) -> print_endline i
+    | String (str, _) -> print_char '"'; print_string str; print_char '"'; print_endline ""
+    | Character (character, _) -> print_char '\''; print_char character; print_char '\''; print_endline ""
+
 let interpret filename =
     let ast = FileParser.parse filename in
-    List.iter execute ast;
+    List.iter print_token ast
+    (*List.iter execute ast;
     let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in
-    ()
+    ()*)
