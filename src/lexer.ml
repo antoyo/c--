@@ -15,10 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-(*
- * Remember line number and column number in token.
- *)
-
 let eof = char_of_int 4
 
 type file_position = int * int
@@ -26,77 +22,46 @@ type file_position = int * int
 exception UnexpectedCharacter of char * file_position
 
 type token =
-    | Character of char * file_position
-    | Colon of file_position
-    | Comma of file_position
+    | Character of char
+    | Colon
+    | Comma
     | Comment
-    | Divide of file_position
-    | DivideEqual of file_position
-    | Eof of file_position
-    | Equal of file_position
-    | Float of float * file_position
-    | Greater of file_position
-    | GreaterOrEqual of file_position
-    | Identifier of string * file_position
-    | Int of int * file_position
-    | IsEqual of file_position
-    | LeftCurlyBracket of file_position
-    | LeftParenthesis of file_position
-    | LeftSquareBracket of file_position
-    | Lesser of file_position
-    | LesserOrEqual of file_position
-    | Minus of file_position
-    | MinusEqual of file_position
-    | Modulo of file_position
-    | ModuloEqual of file_position
-    | Not of file_position
-    | NotEqual of file_position
-    | Plus of file_position
-    | PlusEqual of file_position
-    | RightCurlyBracket of file_position
-    | RightParenthesis of file_position
-    | RightSquareBracket of file_position
-    | SemiColon of file_position
-    | String of string * file_position
-    | Times of file_position
-    | TimesEqual of file_position
+    | Divide
+    | DivideEqual
+    | Eof
+    | Equal
+    | Float of float
+    | Greater
+    | GreaterOrEqual
+    | Identifier of string
+    | Int of int
+    | IsEqual
+    | LeftCurlyBracket
+    | LeftParenthesis
+    | LeftSquareBracket
+    | Lesser
+    | LesserOrEqual
+    | Minus
+    | MinusEqual
+    | Modulo
+    | ModuloEqual
+    | Not
+    | NotEqual
+    | Plus
+    | PlusEqual
+    | RightCurlyBracket
+    | RightParenthesis
+    | RightSquareBracket
+    | SemiColon
+    | String of string
+    | Times
+    | TimesEqual
 
-let character c () = Character (c, FileReader.file_position ())
-let colon () = Colon (FileReader.file_position ())
-let comma () = Comma (FileReader.file_position ())
-let comment () = Comment
-let divide () = Divide (FileReader.file_position ())
-let divideEqual () = DivideEqual (FileReader.file_position ())
-let eof () = Eof (FileReader.file_position ())
-let equal () = Equal (FileReader.file_position ())
-let floating number () = Float (number, FileReader.file_position ())
-let greater () = Greater (FileReader.file_position ())
-let greaterOrEqual () = GreaterOrEqual (FileReader.file_position ())
-let identifier id () = Identifier (id, FileReader.file_position ())
-let integer number () = Int (number, FileReader.file_position ())
-let isEqual () = IsEqual (FileReader.file_position ())
-let leftCurlyBracket () = LeftCurlyBracket (FileReader.file_position ())
-let leftParenthesis () = LeftParenthesis (FileReader.file_position ())
-let leftSquareBracket () = LeftSquareBracket (FileReader.file_position ())
-let lesser () = Lesser (FileReader.file_position ())
-let lesserOrEqual () = LesserOrEqual (FileReader.file_position ())
-let minus () = Minus (FileReader.file_position ())
-let minusEqual () = MinusEqual (FileReader.file_position ())
-let modulo () = Modulo (FileReader.file_position ())
-let moduloEqual () = ModuloEqual (FileReader.file_position ())
-let not_op () = Not (FileReader.file_position ())
-let notEqual () = NotEqual (FileReader.file_position ())
-let plus () = Plus (FileReader.file_position ())
-let plusEqual () = PlusEqual (FileReader.file_position ())
-let rightCurlyBracket () = RightCurlyBracket (FileReader.file_position ())
-let rightParenthesis () = RightParenthesis (FileReader.file_position ())
-let rightSquareBracket () = RightSquareBracket (FileReader.file_position ())
-let semiColon () = SemiColon (FileReader.file_position ())
-let string_literal value () = String (value, FileReader.file_position ())
-let times () = Times (FileReader.file_position ())
-let timesEqual () = TimesEqual (FileReader.file_position ())
+type token_with_position = token * file_position
 
 let keywords = []
+
+let add_position token = (token, FileReader.file_position ())
 
 let close () =
     FileReader.close_file ()
@@ -128,28 +93,28 @@ let rec skip_line_comment () =
 
 let get_arithmetic_or_assignment_operator_or_skip_comment () =
     match FileReader.get_char () with
-    | '+' -> if_match_after '=' plusEqual plus
-    | '-' -> if_match_after '=' minusEqual minus
-    | '*' -> if_match_after '=' timesEqual times
+    | '+' -> if_match_after '=' PlusEqual Plus
+    | '-' -> if_match_after '=' MinusEqual Minus
+    | '*' -> if_match_after '=' TimesEqual Times
     | '/' ->
             FileReader.next_char ();
             (match FileReader.get_char () with
-            | '/' -> skip_line_comment (); comment
-            | '*' -> skip_block_comment (); comment
-            | '=' -> divideEqual
+            | '/' -> skip_line_comment (); Comment
+            | '*' -> skip_block_comment (); Comment
+            | '=' -> DivideEqual
             | _ ->
                 FileReader.previous_char ();
-                divide
+                Divide
             )
-    | '%' -> if_match_after '=' moduloEqual modulo
+    | '%' -> if_match_after '=' ModuloEqual Modulo
     | _ -> raise (Invalid_argument "Invalid character")
 
 let get_comparison_or_logical_operator () =
     match FileReader.get_char () with
-    | '=' -> if_match_after '=' isEqual equal
-    | '<' -> if_match_after '=' lesserOrEqual lesser
-    | '>' -> if_match_after '=' greaterOrEqual greater
-    | '!' -> if_match_after '=' notEqual not_op
+    | '=' -> if_match_after '=' IsEqual Equal
+    | '<' -> if_match_after '=' LesserOrEqual Lesser
+    | '>' -> if_match_after '=' GreaterOrEqual Greater
+    | '!' -> if_match_after '=' NotEqual Not
     | _ -> raise (Invalid_argument "Invalid character")
 
 let int_of_digit digit =
@@ -185,14 +150,14 @@ let get_number () =
                 FileReader.next_char ();
                 get_decimals ();
                 get_exponent ();
-                floating (float_of_string (FileReader.substring ()))
+                Float (float_of_string (FileReader.substring ()))
         | 'e' | 'E' ->
                 FileReader.next_char ();
                 get_decimals ();
-                floating (float_of_string (FileReader.substring ()))
+                Float (float_of_string (FileReader.substring ()))
         | _ ->
                 FileReader.previous_char ();
-                integer (int_of_string (FileReader.substring ()))
+                Int (int_of_string (FileReader.substring ()))
     in get_number ()
 
 let get_identifier () =
@@ -204,7 +169,7 @@ let get_identifier () =
                 get_identifier ()
         | _ ->
                 FileReader.previous_char ();
-                identifier (FileReader.substring ())
+                Identifier (FileReader.substring ())
     in get_identifier ()
 
 let get_string () =
@@ -214,7 +179,7 @@ let get_string () =
         match FileReader.get_char () with
         | '"' ->
                 FileReader.previous_char ();
-                let token = string_literal (FileReader.substring ()) in
+                let token = String (FileReader.substring ()) in
                 FileReader.next_char ();
                 token
         | _ ->
@@ -224,41 +189,45 @@ let get_string () =
 
 let get_character () =
     FileReader.next_char ();
-    let token = character (FileReader.get_char ()) in
+    let token = Character (FileReader.get_char ()) in
     FileReader.next_char ();
     token
 
 let lex filename =
     FileReader.open_file filename
 
-let rec next_token () =
+let rec next_token () : token_with_position =
     FileReader.adjust_start_position ();
     let token = (match FileReader.get_char () with
-    | exception End_of_file -> (eof ())
-    | '{' -> (leftCurlyBracket ())
-    | '}' -> (rightCurlyBracket ())
-    | '(' -> (leftParenthesis ())
-    | ')' -> (rightParenthesis ())
-    | '[' -> (leftSquareBracket ())
-    | ']' -> (rightSquareBracket ())
-    | ':' -> (colon ())
-    | ';' -> (semiColon ())
-    | ',' -> (comma ())
-    | ' ' | '\n' -> FileReader.next_char (); let token = next_token () in FileReader.previous_char (); token
-    | '=' | '!' | '<' | '>' -> get_comparison_or_logical_operator () ()
+    | exception End_of_file -> Eof
+    | '{' -> LeftCurlyBracket
+    | '}' -> RightCurlyBracket
+    | '(' -> LeftParenthesis
+    | ')' -> RightParenthesis
+    | '[' -> LeftSquareBracket
+    | ']' -> RightSquareBracket
+    | ':' -> Colon
+    | ';' -> SemiColon
+    | ',' -> Comma
+    | ' ' | '\n' ->
+            FileReader.next_char ();
+            let (token, _) = next_token ()
+            in FileReader.previous_char ();
+            token
+    | '=' | '!' | '<' | '>' -> get_comparison_or_logical_operator ()
     | '+' | '-' | '*' | '/' | '%' -> (
-            match get_arithmetic_or_assignment_operator_or_skip_comment () () with
+            match get_arithmetic_or_assignment_operator_or_skip_comment () with
             | Comment ->
-                    let token = next_token () in
+                    let (token, _) = next_token () in
                     FileReader.previous_char ();
                     token
             | token -> token
     )
-    | '0' .. '9' -> get_number () ()
-    | '_' | 'A' .. 'Z' | 'a' .. 'z' -> get_identifier () ()
-    | '"' -> get_string () ()
-    | '\'' -> get_character () ()
+    | '0' .. '9' -> get_number ()
+    | '_' | 'A' .. 'Z' | 'a' .. 'z' -> get_identifier ()
+    | '"' -> get_string ()
+    | '\'' -> get_character ()
     | character -> raise (UnexpectedCharacter (character, FileReader.file_position ()))
     ) in
     FileReader.next_char ();
-    token
+    add_position token

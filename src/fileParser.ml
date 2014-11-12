@@ -17,7 +17,7 @@
 
 let rec get_all_tokens tokens =
     match Lexer.next_token () with
-    | Lexer.Eof _ -> tokens @ [Lexer.eof ()]
+    | (Lexer.Eof, _) as token -> tokens @ [token]
     | token -> get_all_tokens (tokens @ [token])
     | exception Lexer.UnexpectedCharacter (character, (line, column)) ->
             print_int line;
