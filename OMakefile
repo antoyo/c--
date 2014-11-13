@@ -2,8 +2,6 @@ PROGRAM = c--
 
 OCAMLFLAGS =
 
-MENHIR_ENABLED = true
-
 NATIVE_ENABLED = true
 BYTE_ENABLED = false
 

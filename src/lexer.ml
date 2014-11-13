@@ -15,6 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
+(*
+ * TODO: transform escape characters in string and character.
+ * TODO: improve the FileReader module to support file of more than 4096 bytes.
+ * TODO: detect unclosed comment (at end of file) and unclosed string.
+ * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
+ *)
+
 let eof = char_of_int 4
 
 type file_position = int * int
@@ -22,18 +29,25 @@ type file_position = int * int
 exception UnexpectedCharacter of char * file_position
 
 type token =
+    | Break
+    | Case
     | Character of char
     | Colon
     | Comma
-    | Comment
+    | Const
+    | Default
     | Divide
     | DivideEqual
+    | Do
+    | Else
     | Eof
     | Equal
     | Float of float
+    | For
     | Greater
     | GreaterOrEqual
     | Identifier of string
+    | If
     | Int of int
     | IsEqual
     | LeftCurlyBracket
@@ -49,17 +63,35 @@ type token =
     | NotEqual
     | Plus
     | PlusEqual
+    | Return
     | RightCurlyBracket
     | RightParenthesis
     | RightSquareBracket
     | SemiColon
     | String of string
+    | Switch
     | Times
     | TimesEqual
+    | While
 
 type token_with_position = token * file_position
 
-let keywords = []
+let keyword_list =
+    [ ("break", Break)
+    ; ("case", Case)
+    ; ("const", Const)
+    ; ("default", Default)
+    ; ("do", Do)
+    ; ("else", Else)
+    ; ("for", For)
+    ; ("if", If)
+    ; ("return", Return)
+    ; ("switch", Switch)
+    ; ("while", While)
+    ]
+
+let keywords = Hashtbl.create 10
+let () = List.iter (fun (key, value) -> Hashtbl.add keywords key value) keyword_list
 
 let add_position token = (token, FileReader.file_position ())
 
@@ -93,20 +125,20 @@ let rec skip_line_comment () =
 
 let get_arithmetic_or_assignment_operator_or_skip_comment () =
     match FileReader.get_char () with
-    | '+' -> if_match_after '=' PlusEqual Plus
-    | '-' -> if_match_after '=' MinusEqual Minus
-    | '*' -> if_match_after '=' TimesEqual Times
+    | '+' -> Some (if_match_after '=' PlusEqual Plus)
+    | '-' -> Some (if_match_after '=' MinusEqual Minus)
+    | '*' -> Some (if_match_after '=' TimesEqual Times)
     | '/' ->
             FileReader.next_char ();
             (match FileReader.get_char () with
-            | '/' -> skip_line_comment (); Comment
-            | '*' -> skip_block_comment (); Comment
-            | '=' -> DivideEqual
+            | '/' -> skip_line_comment (); None
+            | '*' -> skip_block_comment (); None
+            | '=' -> Some DivideEqual
             | _ ->
                 FileReader.previous_char ();
-                Divide
+                Some Divide
             )
-    | '%' -> if_match_after '=' ModuloEqual Modulo
+    | '%' -> Some (if_match_after '=' ModuloEqual Modulo)
     | _ -> raise (Invalid_argument "Invalid character")
 
 let get_comparison_or_logical_operator () =
@@ -116,11 +148,6 @@ let get_comparison_or_logical_operator () =
     | '>' -> if_match_after '=' GreaterOrEqual Greater
     | '!' -> if_match_after '=' NotEqual Not
     | _ -> raise (Invalid_argument "Invalid character")
-
-let int_of_digit digit =
-    let zero = int_of_char '0' in
-    let code = int_of_char digit in
-    code - zero
 
 let get_decimals () =
     let rec get_decimals () =
@@ -160,6 +187,11 @@ let get_number () =
                 Int (int_of_string (FileReader.substring ()))
     in get_number ()
 
+let get_identifier_or_token str =
+    match Hashtbl.find keywords str with
+    | token -> token
+    | exception Not_found -> Identifier str
+
 let get_identifier () =
     FileReader.next_char ();
     let rec get_identifier () =
@@ -169,7 +201,7 @@ let get_identifier () =
                 get_identifier ()
         | _ ->
                 FileReader.previous_char ();
-                Identifier (FileReader.substring ())
+                get_identifier_or_token (FileReader.substring ())
     in get_identifier ()
 
 let get_string () =
@@ -193,10 +225,7 @@ let get_character () =
     FileReader.next_char ();
     token
 
-let lex filename =
-    FileReader.open_file filename
-
-let rec next_token () : token_with_position =
+let rec next_token () =
     FileReader.adjust_start_position ();
     let token = (match FileReader.get_char () with
     | exception End_of_file -> Eof
@@ -217,11 +246,11 @@ let rec next_token () : token_with_position =
     | '=' | '!' | '<' | '>' -> get_comparison_or_logical_operator ()
     | '+' | '-' | '*' | '/' | '%' -> (
             match get_arithmetic_or_assignment_operator_or_skip_comment () with
-            | Comment ->
+            | None ->
                     let (token, _) = next_token () in
                     FileReader.previous_char ();
                     token
-            | token -> token
+            | Some token -> token
     )
     | '0' .. '9' -> get_number ()
     | '_' | 'A' .. 'Z' | 'a' .. 'z' -> get_identifier ()
@@ -231,3 +260,12 @@ let rec next_token () : token_with_position =
     ) in
     FileReader.next_char ();
     add_position token
+
+let stream_generator _ =
+    match next_token () with
+    | (Eof, _) -> None
+    | token -> Some token
+
+let tokens filename =
+    FileReader.open_file filename;
+    Stream.from stream_generator

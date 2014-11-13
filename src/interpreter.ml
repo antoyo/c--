@@ -305,6 +305,17 @@ let print_token token = match token with
         | Identifier i -> print_endline i
         | String str -> print_char '"'; print_string str; print_char '"'; print_endline ""
         | Character character -> print_char '\''; print_char character; print_char '\''; print_endline ""
+        | If -> print_endline "if statement"
+        | Else -> print_endline "else statement"
+        | Return -> print_endline "return statement"
+        | Const -> print_endline "const declaration"
+        | While -> print_endline "while statement"
+        | For -> print_endline "for statement"
+        | Do -> print_endline "do while statement"
+        | Switch -> print_endline "switch statement"
+        | Case -> print_endline "case label"
+        | Break -> print_endline "break statement"
+        | Default -> print_endline "default label"
     )
 
 let interpret filename =
