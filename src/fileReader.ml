@@ -23,12 +23,14 @@ let channel = ref stdin
 
 let column = ref 1
 
+let file = ref ""
+
 let line = ref 1
 
 let close_file () =
     close_in !channel
 
-let file_position () = (!line, !column)
+let file_position () = (!file, !line, !column)
 
 let get_current_char () =
     match Stream.peek !stream with
@@ -60,5 +62,6 @@ let next_char () =
         incr column
 
 let open_file filename =
+    file := filename;
     channel := open_in filename;
     stream := Stream.of_channel !channel

@@ -46,7 +46,7 @@ type token =
     | TimesEqual
     | While
 
-type file_position = int * int
+type file_position = string * int * int
 
 type token_with_position = token * file_position
 

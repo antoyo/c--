@@ -22,7 +22,7 @@
 
 let eof = char_of_int 4
 
-type file_position = int * int
+type file_position = string * int * int
 
 exception SyntaxError of string * file_position
 exception UnexpectedCharacter of char * file_position
@@ -241,7 +241,7 @@ let get_string () =
                 FileReader.next_char ();
                 FileReader.next_char ();
                 token
-        | '\n' | '\r' as character ->
+        | '\n' | '\r' ->
                 raise_syntax_error "Unclosed string"
         | character ->
                 Buffer.add_char buffer character;

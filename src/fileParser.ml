@@ -16,7 +16,9 @@
  *)
 
 let print_error message position =
-    let (line, column) = position in
+    let (file, line, column) = position in
+    print_string file;
+    print_char ':';
     print_int line;
     print_char ':';
     print_int column;

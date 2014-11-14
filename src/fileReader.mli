@@ -17,7 +17,7 @@
 
 val close_file : unit -> unit
 
-val file_position : unit -> int * int
+val file_position : unit -> string * int * int
 
 val get_char : unit -> char
 
