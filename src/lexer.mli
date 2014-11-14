@@ -27,12 +27,14 @@ type token =
     | LesserOrEqual
     | Minus
     | MinusEqual
+    | MinusMinus
     | Modulo
     | ModuloEqual
     | Not
     | NotEqual
     | Plus
     | PlusEqual
+    | PlusPlus
     | Return
     | RightCurlyBracket
     | RightParenthesis

@@ -15,20 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-val eof : char
-
-val adjust_start_position : unit -> unit
-
 val close_file : unit -> unit
 
 val file_position : unit -> int * int
 
 val get_char : unit -> char
 
+val get_next_char : unit -> char
+
 val next_char : unit -> unit
 
 val open_file : string -> unit
-
-val previous_char : unit -> unit
-
-val substring : unit -> string

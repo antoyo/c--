@@ -16,9 +16,9 @@
  *)
 
 (*
- * TODO: improve the FileReader module to support file of more than 4096 bytes.
  * TODO: detect unclosed comment (at end of file) and unclosed string.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
+ * TODO: allow multiple instances of the modules to be created.
  *)
 
 let eof = char_of_int 4
@@ -59,12 +59,14 @@ type token =
     | LesserOrEqual
     | Minus
     | MinusEqual
+    | MinusMinus
     | Modulo
     | ModuloEqual
     | Not
     | NotEqual
     | Plus
     | PlusEqual
+    | PlusPlus
     | Return
     | RightCurlyBracket
     | RightParenthesis
@@ -101,11 +103,11 @@ let close () =
     FileReader.close_file ()
 
 let if_match_after character result_if_true result_if_false =
-    FileReader.next_char ();
-    if FileReader.get_char () = character then
-        result_if_true
+    if FileReader.get_next_char () = character then (
+        FileReader.next_char ();
+        result_if_true;
+    )
     else (
-        FileReader.previous_char ();
         result_if_false
     )
 
@@ -127,18 +129,15 @@ let rec skip_line_comment () =
 
 let get_arithmetic_or_assignment_operator_or_skip_comment () =
     match FileReader.get_char () with
-    | '+' -> Some (if_match_after '=' PlusEqual Plus)
-    | '-' -> Some (if_match_after '=' MinusEqual Minus)
+    | '+' -> Some (if_match_after '=' PlusEqual (if_match_after '+' PlusPlus Plus))
+    | '-' -> Some (if_match_after '=' MinusEqual (if_match_after '-' MinusMinus Minus))
     | '*' -> Some (if_match_after '=' TimesEqual Times)
     | '/' ->
-            FileReader.next_char ();
-            (match FileReader.get_char () with
+            (match FileReader.get_next_char () with
             | '/' -> skip_line_comment (); None
-            | '*' -> skip_block_comment (); None
-            | '=' -> Some DivideEqual
-            | _ ->
-                FileReader.previous_char ();
-                Some Divide
+            | '*' -> FileReader.next_char (); skip_block_comment (); None
+            | '=' -> FileReader.next_char (); Some DivideEqual
+            | _ -> Some Divide
             )
     | '%' -> Some (if_match_after '=' ModuloEqual Modulo)
     | _ -> raise (Invalid_argument "Invalid character")
@@ -151,42 +150,46 @@ let get_comparison_or_logical_operator () =
     | '!' -> if_match_after '=' NotEqual Not
     | _ -> raise (Invalid_argument "Invalid character")
 
-let get_decimals () =
+let get_decimals buffer =
     let rec get_decimals () =
-        match FileReader.get_char () with
-        | '0' .. '9' ->
+        match FileReader.get_next_char () with
+        | '0' .. '9' as character ->
+                Buffer.add_char buffer character;
                 FileReader.next_char ();
                 get_decimals ()
-        | _ ->
-                FileReader.previous_char ()
+        | _ -> ()
     in get_decimals ()
 
-let get_exponent () =
-    FileReader.next_char ();
-    match FileReader.get_char () with
-    | 'e' | 'E' ->
+let get_exponent buffer =
+    match FileReader.get_next_char () with
+    | 'e' | 'E' as character ->
+            Buffer.add_char buffer character;
             FileReader.next_char ();
-            get_decimals ()
-    | _ -> FileReader.previous_char ()
+            get_decimals buffer
+    | _ -> ()
 
 let get_number () =
+    let buffer = Buffer.create 10 in
+    Buffer.add_char buffer (FileReader.get_char ());
     let rec get_number () =
-        match FileReader.get_char () with
-        | '0' .. '9' ->
+        match FileReader.get_next_char () with
+        | '0' .. '9' as character ->
+                Buffer.add_char buffer character;
                 FileReader.next_char ();
                 get_number ()
         | '.' ->
+                Buffer.add_char buffer '.';
                 FileReader.next_char ();
-                get_decimals ();
-                get_exponent ();
-                Float (float_of_string (FileReader.substring ()))
+                get_decimals buffer;
+                get_exponent buffer;
+                Float (float_of_string (Buffer.contents buffer))
         | 'e' | 'E' ->
+                Buffer.add_char buffer 'e';
                 FileReader.next_char ();
-                get_decimals ();
-                Float (float_of_string (FileReader.substring ()))
+                get_decimals buffer;
+                Float (float_of_string (Buffer.contents buffer))
         | _ ->
-                FileReader.previous_char ();
-                Int (int_of_string (FileReader.substring ()))
+                Int (int_of_string (Buffer.contents buffer))
     in get_number ()
 
 let get_identifier_or_token str =
@@ -195,15 +198,16 @@ let get_identifier_or_token str =
     | exception Not_found -> Identifier str
 
 let get_identifier () =
-    FileReader.next_char ();
+    let buffer = Buffer.create 10 in
+    Buffer.add_char buffer (FileReader.get_char ());
     let rec get_identifier () =
-        match FileReader.get_char () with
-        | '_' | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9'->
+        match FileReader.get_next_char () with
+        | '_' | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9'as character ->
+                Buffer.add_char buffer character;
                 FileReader.next_char ();
                 get_identifier ()
         | _ ->
-                FileReader.previous_char ();
-                get_identifier_or_token (FileReader.substring ())
+                get_identifier_or_token (Buffer.contents buffer)
     in get_identifier ()
 
 let escape_char = function
@@ -220,18 +224,16 @@ let escape_char_string = function
     | character -> escape_char character
 
 let get_string () =
-    FileReader.next_char ();
-    FileReader.adjust_start_position ();
     let rec get_string buffer =
-        match FileReader.get_char () with
+        match FileReader.get_next_char () with
         | '\\' ->
                 FileReader.next_char ();
-                Buffer.add_char buffer (escape_char_string (FileReader.get_char ()));
                 FileReader.next_char ();
+                Buffer.add_char buffer (escape_char_string (FileReader.get_char ()));
                 get_string buffer
         | '"' ->
-                FileReader.previous_char ();
                 let token = String (Buffer.contents buffer) in
+                FileReader.next_char ();
                 FileReader.next_char ();
                 token
         | character ->
@@ -251,46 +253,34 @@ let get_character () =
     FileReader.next_char ();
     token
 
-let rec next_token () =
-    FileReader.adjust_start_position ();
-    let token = (match FileReader.get_char () with
-    | exception End_of_file -> Eof
-    | '{' -> LeftCurlyBracket
-    | '}' -> RightCurlyBracket
-    | '(' -> LeftParenthesis
-    | ')' -> RightParenthesis
-    | '[' -> LeftSquareBracket
-    | ']' -> RightSquareBracket
-    | ':' -> Colon
-    | ';' -> SemiColon
-    | ',' -> Comma
-    | ' ' | '\n' ->
-            FileReader.next_char ();
-            let (token, _) = next_token ()
-            in FileReader.previous_char ();
-            token
-    | '=' | '!' | '<' | '>' -> get_comparison_or_logical_operator ()
-    | '+' | '-' | '*' | '/' | '%' -> (
-            match get_arithmetic_or_assignment_operator_or_skip_comment () with
-            | None ->
-                    let (token, _) = next_token () in
-                    FileReader.previous_char ();
-                    token
-            | Some token -> token
-    )
-    | '0' .. '9' -> get_number ()
-    | '_' | 'A' .. 'Z' | 'a' .. 'z' -> get_identifier ()
-    | '"' -> get_string ()
-    | '\'' -> get_character ()
+let next_token () =
+    match FileReader.get_char () with
+    | exception End_of_file -> Some Eof
+    | '{' -> Some LeftCurlyBracket
+    | '}' -> Some RightCurlyBracket
+    | '(' -> Some LeftParenthesis
+    | ')' -> Some RightParenthesis
+    | '[' -> Some LeftSquareBracket
+    | ']' -> Some RightSquareBracket
+    | ':' -> Some Colon
+    | ';' -> Some SemiColon
+    | ',' -> Some Comma
+    | ' ' | '\n' -> None
+    | '=' | '!' | '<' | '>' -> Some (get_comparison_or_logical_operator ())
+    | '+' | '-' | '*' | '/' | '%' -> get_arithmetic_or_assignment_operator_or_skip_comment ()
+    | '0' .. '9' -> Some (get_number ())
+    | '_' | 'A' .. 'Z' | 'a' .. 'z' -> Some (get_identifier ())
+    | '"' -> Some (get_string ())
+    | '\'' -> Some (get_character ())
     | character -> raise_unexpected_character character
-    ) in
-    FileReader.next_char ();
-    add_position token
 
-let stream_generator _ =
-    match next_token () with
-    | (Eof, _) -> None
-    | token -> Some token
+let rec stream_generator _ =
+    let token = next_token () in
+    FileReader.next_char();
+    match token with
+    | None ->  stream_generator 0
+    | Some Eof -> None
+    | Some token -> Some (add_position token)
 
 let tokens filename =
     FileReader.open_file filename;

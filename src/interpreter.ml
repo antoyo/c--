@@ -316,6 +316,8 @@ let print_token token = match token with
         | Case -> print_endline "case label"
         | Break -> print_endline "break statement"
         | Default -> print_endline "default label"
+        | PlusPlus -> print_endline "increment"
+        | MinusMinus -> print_endline "decrement"
     )
 
 let interpret filename =

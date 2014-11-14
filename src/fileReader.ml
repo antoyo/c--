@@ -17,13 +17,7 @@
 
 let eof = char_of_int 4
 
-let read_size = 4096
-
-let buffer1 = Buffer.create (read_size + 1)
-
-let buffer2 = Buffer.create (read_size + 1)
-
-let bytes = Bytes.create read_size
+let stream = ref (Stream.of_list [] : char Stream.t)
 
 let channel = ref stdin
 
@@ -34,31 +28,31 @@ let line = ref 0
 let close_file () =
     close_in !channel
 
-let current_buffer = ref buffer1
-let current_pointer = ref 0
-
 let file_position () = (!line, !column)
 
-let read buffer start len =
-    let length = input !channel bytes start len in
-    Bytes.set bytes length eof;
-    Buffer.add_bytes buffer bytes
+let get_current_char () =
+    match Stream.peek !stream with
+    | Some character -> character
+    | None -> eof
 
 let get_char () =
-    let character = Buffer.nth !current_buffer !current_pointer in
-    if character = eof
-        then raise End_of_file
-        else character
+    match Stream.peek !stream with
+    | Some character -> character
+    | None -> raise End_of_file
 
-let get_current_char () =
-    Buffer.nth !current_buffer !current_pointer
+let get_next_char_noerr () =
+    match Stream.npeek 2 !stream with
+    | [_; character] -> character
+    | _ -> eof
 
 let get_next_char () =
-    Buffer.nth !current_buffer (!current_pointer + 1)
+    match Stream.npeek 2 !stream with
+    | [_; character] -> character
+    | _ -> raise End_of_file
 
 let next_char () =
-    incr current_pointer;
-    if get_current_char () = '\n' || (get_current_char () = '\r' && get_next_char () <> '\n') then (
+    Stream.junk !stream;
+    if get_current_char () = '\n' || (get_current_char () = '\r' && get_next_char_noerr () <> '\n') then (
         incr line;
         column := 0;
     )
@@ -67,20 +61,4 @@ let next_char () =
 
 let open_file filename =
     channel := open_in filename;
-    read buffer1 0 read_size;
-    try
-        read buffer2 read_size read_size
-    with _ ->()
-
-let previous_char () =
-    decr current_pointer
-
-let start_buffer = ref buffer1
-let start_pointer = ref 0
-
-let adjust_start_position () =
-    start_buffer := !start_buffer;
-    start_pointer := !current_pointer
-
-let substring () =
-    Buffer.sub !current_buffer !start_pointer (!current_pointer - !start_pointer + 1)
+    stream := Stream.of_channel !channel
