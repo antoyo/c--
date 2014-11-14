@@ -15,21 +15,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
+let print_error message position =
+    let (line, column) = position in
+    print_int line;
+    print_char ':';
+    print_int column;
+    print_string ": ";
+    print_string message;
+    print_string " on line ";
+    print_int line;
+    print_endline "."
+
 let get_all_tokens filename =
     let token_stream = Lexer.tokens filename in
     let rec get_all_tokens tokens =
         match Stream.next token_stream with
         | token -> get_all_tokens (tokens @ [token])
         | exception Stream.Failure -> tokens
-        | exception Lexer.UnexpectedCharacter (character, (line, column)) ->
-                print_int line;
-                print_char ':';
-                print_int column;
-                print_string ": Unexpected character `";
-                print_char character;
-                print_string "` on line ";
-                print_int line;
-                print_endline ".";
+        | exception Lexer.SyntaxError (message, position) ->
+                print_error ("Syntax error: " ^ message) position;
+                []
+        | exception Lexer.UnexpectedCharacter (character, position) ->
+                print_error ("Unexpected character `" ^ (Char.escaped character) ^ "`") position;
                 []
     in get_all_tokens []
 

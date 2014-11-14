@@ -50,6 +50,7 @@ type file_position = int * int
 
 type token_with_position = token * file_position
 
+exception SyntaxError of string * file_position
 exception UnexpectedCharacter of char * file_position
 
 val close : unit -> unit

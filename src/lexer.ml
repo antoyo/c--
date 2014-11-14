@@ -16,7 +16,6 @@
  *)
 
 (*
- * TODO: detect unclosed comment (at end of file) and unclosed string.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
  * TODO: allow multiple instances of the modules to be created.
  *)
@@ -25,7 +24,11 @@ let eof = char_of_int 4
 
 type file_position = int * int
 
+exception SyntaxError of string * file_position
 exception UnexpectedCharacter of char * file_position
+
+let raise_syntax_error message =
+    raise (SyntaxError (message, FileReader.file_position ()))
 
 let raise_unexpected_character character =
     raise (UnexpectedCharacter (character, FileReader.file_position ()))
@@ -120,6 +123,7 @@ let rec skip_block_comment () =
             | '/' -> FileReader.next_char ()
             | _ -> skip_block_comment ())
     | _ -> skip_block_comment ()
+    | exception End_of_file -> raise_syntax_error "Unclosed comment"
 
 let rec skip_line_comment () =
     FileReader.next_char ();
@@ -221,6 +225,7 @@ let escape_char = function
 
 let escape_char_string = function
     | '"' -> '"'
+    | '\n' -> '\n'
     | character -> escape_char character
 
 let get_string () =
@@ -236,6 +241,8 @@ let get_string () =
                 FileReader.next_char ();
                 FileReader.next_char ();
                 token
+        | '\n' | '\r' as character ->
+                raise_syntax_error "Unclosed string"
         | character ->
                 Buffer.add_char buffer character;
                 FileReader.next_char ();

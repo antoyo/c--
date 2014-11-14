@@ -21,9 +21,9 @@ let stream = ref (Stream.of_list [] : char Stream.t)
 
 let channel = ref stdin
 
-let column = ref 0
+let column = ref 1
 
-let line = ref 0
+let line = ref 1
 
 let close_file () =
     close_in !channel
