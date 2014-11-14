@@ -224,7 +224,7 @@ and is_true = function
     | Equals (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
             result = 0
-    | Int integer -> integer != 0
+    | Int integer -> integer <> 0
     | Greater (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
             result > 0
@@ -239,7 +239,7 @@ and is_true = function
             result <= 0
     | NotEqual (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
-            result != 0
+            result <> 0
 
 and putc = function
     | _ :: _ :: [] -> print_endline "Too much parameter."

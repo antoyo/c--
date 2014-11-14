@@ -16,7 +16,6 @@
  *)
 
 (*
- * TODO: transform escape characters in string and character.
  * TODO: improve the FileReader module to support file of more than 4096 bytes.
  * TODO: detect unclosed comment (at end of file) and unclosed string.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
@@ -27,6 +26,9 @@ let eof = char_of_int 4
 type file_position = int * int
 
 exception UnexpectedCharacter of char * file_position
+
+let raise_unexpected_character character =
+    raise (UnexpectedCharacter (character, FileReader.file_position ()))
 
 type token =
     | Break
@@ -204,24 +206,48 @@ let get_identifier () =
                 get_identifier_or_token (FileReader.substring ())
     in get_identifier ()
 
+let escape_char = function
+    | 'b' -> '\b'
+    | 'n' -> '\n'
+    | 'r' -> '\r'
+    | 't' -> '\t'
+    | '\\' -> '\\'
+    | '\'' -> '\''
+    | character -> raise_unexpected_character character
+
+let escape_char_string = function
+    | '"' -> '"'
+    | character -> escape_char character
+
 let get_string () =
     FileReader.next_char ();
     FileReader.adjust_start_position ();
-    let rec get_string () =
+    let rec get_string buffer =
         match FileReader.get_char () with
+        | '\\' ->
+                FileReader.next_char ();
+                Buffer.add_char buffer (escape_char_string (FileReader.get_char ()));
+                FileReader.next_char ();
+                get_string buffer
         | '"' ->
                 FileReader.previous_char ();
-                let token = String (FileReader.substring ()) in
+                let token = String (Buffer.contents buffer) in
                 FileReader.next_char ();
                 token
-        | _ ->
+        | character ->
+                Buffer.add_char buffer character;
                 FileReader.next_char ();
-                get_string ()
-    in get_string ()
+                get_string buffer
+    in get_string (Buffer.create 10)
 
 let get_character () =
     FileReader.next_char ();
-    let token = Character (FileReader.get_char ()) in
+    let token = match FileReader.get_char () with
+    | '\\' ->
+            FileReader.next_char ();
+            Character (escape_char (FileReader.get_char ()))
+    | character -> Character character
+    in
     FileReader.next_char ();
     token
 
@@ -256,7 +282,7 @@ let rec next_token () =
     | '_' | 'A' .. 'Z' | 'a' .. 'z' -> get_identifier ()
     | '"' -> get_string ()
     | '\'' -> get_character ()
-    | character -> raise (UnexpectedCharacter (character, FileReader.file_position ()))
+    | character -> raise_unexpected_character character
     ) in
     FileReader.next_char ();
     add_position token
