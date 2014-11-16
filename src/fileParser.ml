@@ -16,7 +16,7 @@
  *)
 
 let print_error message position =
-    let (file, line, column) = position in
+    let {FileReader.position_filename = file; FileReader.position_line = line; FileReader.position_column = column} = position in
     print_string file;
     print_char ':';
     print_int line;
@@ -28,21 +28,21 @@ let print_error message position =
     print_int line;
     print_endline "."
 
-let get_all_tokens filename =
-    let token_stream = Lexer.tokens filename in
+let get_all_tokens lexer =
     let rec get_all_tokens tokens =
-        match Stream.next token_stream with
+        match Lexer.next_token lexer with
+        | (Lexer.Eof, _) -> tokens
         | token -> get_all_tokens (tokens @ [token])
-        | exception Stream.Failure -> tokens
-        | exception Lexer.SyntaxError (message, position) ->
-                print_error ("Syntax error: " ^ message) position;
+        | exception Lexer.SyntaxError {Lexer.error_message; Lexer.error_position} ->
+                print_error ("Syntax error: " ^ error_message) error_position;
                 []
-        | exception Lexer.UnexpectedCharacter (character, position) ->
-                print_error ("Unexpected character `" ^ (Char.escaped character) ^ "`") position;
+        | exception Lexer.UnexpectedCharacter {Lexer.error_message; Lexer.error_position} ->
+                print_error ("Syntax error: " ^ error_message) error_position;
                 []
     in get_all_tokens []
 
 let parse filename =
-    let tokens = get_all_tokens filename in
-    Lexer.close ();
+    let lexer = Lexer.create filename in
+    let tokens = get_all_tokens lexer in
+    Lexer.close lexer;
     tokens

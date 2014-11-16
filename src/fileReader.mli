@@ -15,14 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-val close_file : unit -> unit
+type t
 
-val file_position : unit -> string * int * int
+type file_position = {
+    position_column: int;
+    position_filename: string;
+    position_line: int;
+}
 
-val get_char : unit -> char
+val close_file : t -> unit
 
-val get_next_char : unit -> char
+val file_position : t -> file_position
 
-val next_char : unit -> unit
+val get_char : t -> char
 
-val open_file : string -> unit
+val get_next_char : t -> char
+
+val next_char : t -> unit
+
+val open_file : string -> t
