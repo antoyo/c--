@@ -30,7 +30,6 @@ type token =
     | Comma
     | Const
     | Default
-    | Divide
     | DivideEqual
     | Do
     | Else
@@ -64,9 +63,10 @@ type token =
     | RightParenthesis
     | RightSquareBracket
     | SemiColon
+    | Slash
+    | Star
     | String of string
     | Switch
-    | Times
     | TimesEqual
     | While
 

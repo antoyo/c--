@@ -15,18 +15,4 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-let print_error message position =
-    let {FileReader.position_filename = file; FileReader.position_line = line; FileReader.position_column = column} = position in
-    print_string file;
-    print_char ':';
-    print_int line;
-    print_char ':';
-    print_int column;
-    print_string ": ";
-    print_string message;
-    print_string " on line ";
-    print_int line;
-    print_endline "."
-
-let parse filename =
-    Parser.parse filename
+val parse : string -> Ast.declaration list

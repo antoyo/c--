@@ -79,7 +79,7 @@ let open_file filename =
     {
         file_channel = channel;
         file_column = 0;
-        file_line = 0;
+        file_line = 1;
         file_name = filename;
         file_stream = Stream.of_channel channel;
     }

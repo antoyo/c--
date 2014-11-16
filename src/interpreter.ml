@@ -19,7 +19,7 @@
  * TODO: Create a JIT compiler.
  *)
 
-open C
+open Ast
 
 type statement_type =
     | Broke
@@ -99,7 +99,7 @@ let rec execute_expression = function
 
 and call_function { called_function_name; arguments } =
     match get_function called_function_name with
-            | Some (FunctionDefinition {return_type; function_name; parameters; statements}) ->
+            | Some (FunctionDeclaration {return_type; function_name; parameters; statements}) ->
                     add_variables_from_arguments parameters arguments;
                     List.iter execute_statement statements;
                     execute_expression (Stack.pop return_values)
@@ -266,63 +266,11 @@ and puts = function
     | _ -> print_endline "One string parameter is expected."
 
 let execute = function
-    | FunctionDefinition { return_type; function_name; parameters; statements } as fnctn ->
+    | FunctionDeclaration { return_type; function_name; parameters; statements } as fnctn ->
             add_function function_name fnctn
-
-open Lexer
-
-let print_token token = match token with
-    | (token, _) -> (match token with
-        | Eof -> print_endline "eof"
-        | LeftCurlyBracket -> print_endline "{"
-        | RightCurlyBracket -> print_endline "}"
-        | LeftParenthesis -> print_endline "("
-        | RightParenthesis -> print_endline ")"
-        | LeftSquareBracket -> print_endline "["
-        | RightSquareBracket -> print_endline "]"
-        | Colon -> print_endline ":"
-        | SemiColon -> print_endline ";"
-        | Comma -> print_endline ","
-        | Greater -> print_endline ">"
-        | GreaterOrEqual -> print_endline ">="
-        | Lesser -> print_endline "<"
-        | LesserOrEqual -> print_endline "<="
-        | NotEqual -> print_endline "!="
-        | IsEqual -> print_endline "=="
-        | Equal -> print_endline "="
-        | Plus -> print_endline "+"
-        | PlusEqual -> print_endline "+="
-        | Minus -> print_endline "-"
-        | MinusEqual -> print_endline "-="
-        | Times -> print_endline "*"
-        | TimesEqual -> print_endline "*="
-        | Divide -> print_endline "/"
-        | DivideEqual -> print_endline "/="
-        | Modulo -> print_endline "%"
-        | ModuloEqual -> print_endline "%="
-        | Int n -> print_int n; print_endline ""
-        | Float n -> print_float n; print_endline ""
-        | Identifier i -> print_endline i
-        | String str -> print_char '"'; print_string str; print_char '"'; print_endline ""
-        | Character character -> print_char '\''; print_char character; print_char '\''; print_endline ""
-        | If -> print_endline "if statement"
-        | Else -> print_endline "else statement"
-        | Return -> print_endline "return statement"
-        | Const -> print_endline "const declaration"
-        | While -> print_endline "while statement"
-        | For -> print_endline "for statement"
-        | Do -> print_endline "do while statement"
-        | Switch -> print_endline "switch statement"
-        | Case -> print_endline "case label"
-        | Break -> print_endline "break statement"
-        | Default -> print_endline "default label"
-        | PlusPlus -> print_endline "increment"
-        | MinusMinus -> print_endline "decrement"
-    )
 
 let interpret filename =
     let ast = FileParser.parse filename in
-    List.iter print_token ast
-    (*List.iter execute ast;
+    List.iter execute ast;
     let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in
-    ()*)
+    ()

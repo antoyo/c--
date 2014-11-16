@@ -16,6 +16,7 @@
  *)
 
 (*
+ * TODO: remember the start and end position of each token.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
  * TODO: add the other operators and keywords supported in C.
  *)
@@ -54,7 +55,6 @@ type token =
     | Comma
     | Const
     | Default
-    | Divide
     | DivideEqual
     | Do
     | Else
@@ -88,9 +88,10 @@ type token =
     | RightParenthesis
     | RightSquareBracket
     | SemiColon
+    | Slash
+    | Star
     | String of string
     | Switch
-    | Times
     | TimesEqual
     | While
 
@@ -149,13 +150,13 @@ let get_arithmetic_or_assignment_operator_or_skip_comment reader =
     match FileReader.get_char reader with
     | '+' -> Some (if_match_after reader '=' PlusEqual (if_match_after reader '+' PlusPlus Plus))
     | '-' -> Some (if_match_after reader '=' MinusEqual (if_match_after reader '-' MinusMinus Minus))
-    | '*' -> Some (if_match_after reader '=' TimesEqual Times)
+    | '*' -> Some (if_match_after reader '=' TimesEqual Star)
     | '/' ->
             (match FileReader.get_next_char reader with
             | '/' -> skip_line_comment reader; None
             | '*' -> FileReader.next_char reader; skip_block_comment reader; None
             | '=' -> FileReader.next_char reader; Some DivideEqual
-            | _ -> Some Divide
+            | _ -> Some Slash
             )
     | '%' -> Some (if_match_after reader '=' ModuloEqual Modulo)
     | _ -> raise (Invalid_argument "Invalid character")

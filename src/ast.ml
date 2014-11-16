@@ -138,12 +138,14 @@ and while_statement = {
     while_statements: statement list;
 }
 
-type function_definition = {
+type function_declaration = {
     return_type: typ;
     function_name: string;
     parameters: parameter list;
     statements: statement list;
 }
 
-type definition =
-    | FunctionDefinition of function_definition
+type declaration =
+    | ConstantDeclaration of constant_declaration
+    | FunctionDeclaration of function_declaration
+    | VariableDeclaration of variable_declaration
