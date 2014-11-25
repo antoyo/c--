@@ -95,7 +95,10 @@ type token =
     | TimesEqual
     | While
 
-type token_with_position = token * FileReader.file_position
+type token_with_position = {
+    token: token;
+    token_position: FileReader.file_position;
+}
 
 let keyword_list =
     [ ("break", Break)
@@ -114,7 +117,10 @@ let keyword_list =
 let keywords = Hashtbl.create 10
 let () = List.iter (fun (key, value) -> Hashtbl.add keywords key value) keyword_list
 
-let add_position reader token = (token, FileReader.file_position reader)
+let add_position reader token = {
+    token;
+    token_position = FileReader.file_position reader;
+}
 
 let close lexer =
     let { lexer_file_reader = file_reader } = lexer in
@@ -275,7 +281,7 @@ let get_character reader =
     FileReader.next_char reader;
     token
 
-let next_token' file_reader =
+let next_token file_reader =
     match FileReader.get_char file_reader with
     | exception End_of_file -> Some Eof
     | '{' -> Some LeftCurlyBracket
@@ -296,15 +302,15 @@ let next_token' file_reader =
     | '\'' -> Some (get_character file_reader)
     | character -> raise_unexpected_character file_reader character
 
-let next_token lexer =
+let tokens lexer =
     let { lexer_file_reader = file_reader } = lexer in
-    let rec next_token () =
-        let token = next_token' file_reader in
+    let rec tokens () =
+        let token = next_token file_reader in
         FileReader.next_char file_reader;
         match token with
-        | None ->  next_token ()
-        | Some token -> add_position file_reader token
-    in next_token ()
+        | None ->  [< tokens () >]
+        | Some token -> [< '(add_position file_reader token); tokens () >]
+    in tokens ()
 
 let create filename =
     let lexer_file_reader = FileReader.open_file filename in

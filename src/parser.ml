@@ -19,152 +19,115 @@
  * TODO: Create helper functions like ends_with to help creating list of things.
  *)
 
+open Lexer
+
 type t = {
-    mutable current_token: Lexer.token_with_position;
+    tokens: token_with_position Stream.t;
     parser_lexer: Lexer.t;
 }
 
-let advance parsr =
-    let { parser_lexer } = parsr in
-    parsr.current_token <- Lexer.next_token parser_lexer
+exception ParseError of Lexer.error_message
 
-let eat parsr token =
-    let (tok, _) = parsr.current_token in
-    if tok = token then (
-        advance parsr;
-        true;
-    )
-    else
-        false
+let parse_error error_message error_position =
+    raise (ParseError {error_message; error_position})
 
-let list_of parsr element =
-    let rec lst () =
+let list_of parsr stream =
+    let rec list_of acc =
         try
-            let el = element parsr in
-            let next_elements = lst () in
-            el :: next_elements
-        with _ -> []
-    in lst ()
+            list_of (parsr stream :: acc)
+        with Stream.Failure -> acc
+    in List.rev (list_of [])
 
-let separated_by parsr element separator =
-    let rec lst () =
-        try
-            let el = element parsr in
-            if eat parsr separator then
-                let next_elements = lst () in
-                el :: next_elements
-            else
-                [el]
-        with _ -> []
-    in lst ()
+let optional stream parsr =
+    try
+        Some (parsr stream)
+    with Stream.Failure -> None
 
-let rec arguments parsr =
-    separated_by parsr expression Lexer.Comma
+let rec arguments = parser
+    | [< expression = expression >] -> [expression]
 
-and expression parsr =
-    match parsr.current_token with
-    | (Character character, _) ->
-            advance parsr;
+and expression = parser
+    | [< '{token = Character character} >] ->
             Ast.Character character
-    | (Identifier called_function_name, _) ->
-            advance parsr;
-            eat parsr LeftParenthesis;
-            let arguments = arguments parsr in
-            eat parsr RightParenthesis;
-            eat parsr SemiColon;
-            Ast.FunctionCall {called_function_name; arguments}
-    | (Int integer, _) ->
-            advance parsr;
+    | [< '{token = Identifier called_function_name}; f = function_call called_function_name >] ->
+            f
+    | [< '{token = Int integer} >] ->
             Ast.Int integer
-    | (String string_literal, _) ->
-            advance parsr;
+    | [< '{token = String string_literal} >] ->
             Ast.String string_literal
 
-let identifier parsr =
-    match parsr.current_token with
-    | (Identifier identifier, _) ->
-            advance parsr;
+and function_call called_function_name = parser
+    | [< '{token = LeftParenthesis}; arguments = arguments; '{token = RightParenthesis}; '{token = SemiColon} >] ->
+            Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
+
+let identifier = parser
+    | [< '{token = Identifier identifier} >] ->
             identifier
 
-let rec array_type parsr typ =
-    if eat parsr LeftSquareBracket then (
-        advance parsr;
-        array_type parsr (Ast.Pointer typ);
-    )
-    else
-        typ
+let rec array_type typ = parser
+    | [< '{token = LeftSquareBracket} >] ->
+            array_type (Ast.Pointer typ) __strm
+    | [< >] -> typ
 
-let rec pointer_type parsr typ =
-    if eat parsr Star then
-        pointer_type parsr (Ast.Pointer typ)
-    else
-       typ
+let rec pointer_type typ = parser
+    | [< '{token = Star} >] ->
+        pointer_type (Ast.Pointer typ) __strm
+    | [< >] -> typ
 
-let typ parsr =
-    match parsr.current_token with
-    | (Identifier typ, _) ->
-            advance parsr;
-            pointer_type parsr (Ast.Type typ)
+let typ = parser
+    | [< '{token = Identifier typ} >] ->
+            pointer_type (Ast.Type typ) __strm
 
-let parameter parsr =
-    let parameter_type = typ parsr in
-    let parameter_name = identifier parsr in
-    let parameter_type = array_type parsr parameter_type in
-    {
-        Ast.parameter_type;
-        Ast.parameter_name;
-    }
+let parameter = parser
+    | [< parameter_type = typ; parameter_name = identifier; parameter_type = array_type parameter_type >] ->
+            {
+                Ast.parameter_type;
+                Ast.parameter_name;
+            }
 
-let parameters parsr =
-    separated_by parsr parameter Lexer.Comma
+let parameters = parser
+    | [< parameter = parameter >] -> [parameter]
+    | [< >] -> []
 
-let statement parsr =
-    match parsr.current_token with
-    | (Identifier _, _) ->
-            Ast.Expression (expression parsr)
-    | (Return, _) ->
-            advance parsr;
-            let expression = expression parsr in
-            eat parsr SemiColon;
+let equal_value = parser
+    | [< '{token = Equal}; expression = expression; '{token = SemiColon} >] -> expression
+
+let variable_declaration = parser
+    | [< variable_type = typ; variable_name = identifier >] ->
+            let variable_value = optional __strm equal_value in
+            Ast.VariableDeclaration {Ast.variable_type; Ast.variable_name; Ast.variable_value}
+
+let statement = parser
+    (*| [< '{token = Identifier _} >] ->
+            either parsr
+            [ variable_declaration
+            ; Ast.Expression expression
+            ]*)
+    | [< '{token = Return}; expression = expression; '{token = SemiColon} >] ->
             Ast.Return expression
 
-let statements parsr =
-    list_of parsr statement
+let statements = list_of statement
 
-let declaration parsr =
-    let typ = typ parsr in
-    let identifier = identifier parsr in
-    eat parsr LeftParenthesis;
-    let parameter_list = parameters parsr in
-    eat parsr RightParenthesis;
-    eat parsr LeftCurlyBracket;
-    let statement_list = statements parsr in
-    eat parsr RightCurlyBracket;
+let declaration = parser
+    | [< return_type = typ; function_name = identifier; '{token = LeftParenthesis}; parameters = parameters; '{token = RightParenthesis}; '{token = LeftCurlyBracket}; statements = statements; '{token = RightCurlyBracket} >] ->
     Ast.FunctionDeclaration {
-        return_type = typ;
-        function_name = identifier;
-        parameters = parameter_list;
-        statements = statement_list;
+        Ast.return_type;
+        Ast.function_name;
+        Ast.parameters;
+        Ast.statements;
     }
 
-let declarations parsr =
-    let rec declarations () =
-        match parsr.current_token with
-        | (Identifier _, _) ->
-                let declaration = declaration parsr in
-                let next_declarations = declarations () in
-                declaration :: next_declarations
-        | (Eof, _) -> []
-    in declarations ()
+let declarations stream =
+    let rec declarations acc = parser
+        | [< '{token = Eof} >] -> acc
+        | [< >] -> declarations (declaration stream :: acc) stream
+    in List.rev (declarations [] stream)
 
 let start parser_lexer =
-    declarations {
-        current_token = Lexer.next_token parser_lexer;
-        parser_lexer;
-    }
+    declarations (tokens parser_lexer)
 
 let parse filename =
-    let lexer = Lexer.create filename in
+    let lexer = create filename in
     let ast = start lexer in
-    Lexer.close lexer;
+    close lexer;
     ast

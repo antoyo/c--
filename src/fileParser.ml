@@ -29,4 +29,9 @@ let print_error message position =
     print_endline "."
 
 let parse filename =
-    Parser.parse filename
+    try
+        Parser.parse filename
+    with Parser.ParseError parse_error ->
+        let {Lexer.error_message; Lexer.error_position} = parse_error in
+        print_error error_message error_position;
+        []

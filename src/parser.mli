@@ -15,4 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
+exception ParseError of Lexer.error_message
+
 val parse : string -> Ast.declaration list

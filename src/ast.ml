@@ -146,6 +146,6 @@ type function_declaration = {
 }
 
 type declaration =
-    | ConstantDeclaration of constant_declaration
+    | GlobalConstantDeclaration of constant_declaration
     | FunctionDeclaration of function_declaration
-    | VariableDeclaration of variable_declaration
+    | GlobalVariableDeclaration of variable_declaration

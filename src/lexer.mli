@@ -70,7 +70,10 @@ type token =
     | TimesEqual
     | While
 
-type token_with_position = token * FileReader.file_position
+type token_with_position = {
+    token: token;
+    token_position: FileReader.file_position;
+}
 
 exception SyntaxError of error_message
 exception UnexpectedCharacter of error_message
@@ -79,4 +82,4 @@ val close : t -> unit
 
 val create : string -> t
 
-val next_token : t -> token_with_position
+val tokens : t -> token_with_position Stream.t

@@ -1,6 +1,7 @@
 PROGRAM = c--
 
-OCAMLFLAGS =
+OCAMLFLAGS = -pp camlp4o
+OCAMLDEPFLAGS = -pp camlp4o
 
 NATIVE_ENABLED = true
 BYTE_ENABLED = false
