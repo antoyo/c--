@@ -100,53 +100,55 @@ type token_with_position = {
     token_position: FileReader.file_position;
 }
 
-let trace = function
-    | { token = Break } ->print_endline "Break"
-    | { token = Case } -> print_endline "Case"
-    | { token = Character c } -> print_endline "Character c"
-    | { token = Colon } -> print_endline "Colon"
-    | { token = Comma } -> print_endline "Comma"
-    | { token = Const } -> print_endline "Const"
-    | { token = Default } -> print_endline "Default"
-    | { token = DivideEqual } -> print_endline "DivideEqual"
-    | { token = Do } -> print_endline "Do"
-    | { token = Else } -> print_endline "Else"
-    | { token = Eof } -> print_endline "Eof"
-    | { token = Equal } -> print_endline "Equal"
-    | { token = Float f } -> print_endline "Float f"
-    | { token = For } -> print_endline "For"
-    | { token = Greater } -> print_endline "Greater"
-    | { token = GreaterOrEqual } -> print_endline "GreaterOrEqual"
-    | { token = Identifier i } -> print_endline "Identifier i"
-    | { token = If } -> print_endline "If"
-    | { token = Int i } -> print_endline "Int i"
-    | { token = IsEqual } -> print_endline "IsEqual"
-    | { token = LeftCurlyBracket } -> print_endline "LeftCurlyBracket"
-    | { token = LeftParenthesis } -> print_endline "LeftParenthesis"
-    | { token = LeftSquareBracket } -> print_endline "LeftSquareBracket"
-    | { token = Lesser } -> print_endline "Lesser"
-    | { token = LesserOrEqual } -> print_endline "LesserOrEqual"
-    | { token = Minus } -> print_endline "Minus"
-    | { token = MinusEqual } -> print_endline "MinusEqual"
-    | { token = MinusMinus } -> print_endline "MinusMinus"
-    | { token = Modulo } -> print_endline "Modulo"
-    | { token = ModuloEqual } -> print_endline "ModuloEqual"
-    | { token = Not } -> print_endline "Not"
-    | { token = NotEqual } -> print_endline "NotEqual"
-    | { token = Plus } -> print_endline "Plus"
-    | { token = PlusEqual } -> print_endline "PlusEqual"
-    | { token = PlusPlus } -> print_endline "PlusPlus"
-    | { token = Return } -> print_endline "Return"
-    | { token = RightCurlyBracket } -> print_endline "RightCurlyBracket"
-    | { token = RightParenthesis } -> print_endline "RtParenthesis"
-    | { token = RightSquareBracket } -> print_endline "RightSquareBracket"
-    | { token = SemiColon } -> print_endline "SemiColon"
-    | { token = Slash } -> print_endline "Slash"
-    | { token = Star } -> print_endline "Star"
-    | { token = String s } -> print_endline "String s"
-    | { token = Switch } -> print_endline "Switch"
-    | { token = TimesEqual } -> print_endline "TimesEqual"
-    | { token = While } -> print_endline "While"
+let string_of_token = function
+    | { token = Break } -> "Break"
+    | { token = Case } -> "Case"
+    | { token = Character c } -> "Character " ^ String.make 1 c
+    | { token = Colon } -> "Colon"
+    | { token = Comma } -> "Comma"
+    | { token = Const } -> "Const"
+    | { token = Default } -> "Default"
+    | { token = DivideEqual } -> "DivideEqual"
+    | { token = Do } -> "Do"
+    | { token = Else } -> "Else"
+    | { token = Eof } -> "Eof"
+    | { token = Equal } -> "Equal"
+    | { token = Float f } -> "Float " ^ string_of_float f
+    | { token = For } -> "For"
+    | { token = Greater } -> "Greater"
+    | { token = GreaterOrEqual } -> "GreaterOrEqual"
+    | { token = Identifier i } -> "Identifier " ^ i
+    | { token = If } -> "If"
+    | { token = Int i } -> "Int " ^ string_of_int i
+    | { token = IsEqual } -> "IsEqual"
+    | { token = LeftCurlyBracket } -> "LeftCurlyBracket"
+    | { token = LeftParenthesis } -> "LeftParenthesis"
+    | { token = LeftSquareBracket } -> "LeftSquareBracket"
+    | { token = Lesser } -> "Lesser"
+    | { token = LesserOrEqual } -> "LesserOrEqual"
+    | { token = Minus } -> "Minus"
+    | { token = MinusEqual } -> "MinusEqual"
+    | { token = MinusMinus } -> "MinusMinus"
+    | { token = Modulo } -> "Modulo"
+    | { token = ModuloEqual } -> "ModuloEqual"
+    | { token = Not } -> "Not"
+    | { token = NotEqual } -> "NotEqual"
+    | { token = Plus } -> "Plus"
+    | { token = PlusEqual } -> "PlusEqual"
+    | { token = PlusPlus } -> "PlusPlus"
+    | { token = Return } -> "Return"
+    | { token = RightCurlyBracket } -> "RightCurlyBracket"
+    | { token = RightParenthesis } -> "RtParenthesis"
+    | { token = RightSquareBracket } -> "RightSquareBracket"
+    | { token = SemiColon } -> "SemiColon"
+    | { token = Slash } -> "Slash"
+    | { token = Star } -> "Star"
+    | { token = String s } -> "String " ^ s
+    | { token = Switch } -> "Switch"
+    | { token = TimesEqual } -> "TimesEqual"
+    | { token = While } -> "While"
+
+let trace token = print_endline (string_of_token token)
 
 let keyword_list =
     [ ("break", Break)
@@ -307,7 +309,6 @@ let get_string reader =
                 get_string buffer
         | '"' ->
                 let token = String (Buffer.contents buffer) in
-                FileReader.next_char reader;
                 FileReader.next_char reader;
                 token
         | '\n' | '\r' ->

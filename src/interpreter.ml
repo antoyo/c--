@@ -272,5 +272,6 @@ let execute = function
 let interpret filename =
     let ast = FileParser.parse filename in
     List.iter execute ast;
-    let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in
-    ()
+    if List.length ast > 0
+        then let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in ()
+        else ()

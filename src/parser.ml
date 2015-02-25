@@ -28,11 +28,12 @@ type t = {
 
 exception ParseError of Lexer.error_message
 
-let eat token_to_eat stream = match Stream.peek stream with
-    | Some {token} when token = token_to_eat -> Stream.junk stream
-
 let parse_error error_message error_position =
     raise (ParseError {error_message; error_position})
+
+let eat token_to_eat stream = match Stream.peek stream with
+    | Some {token} when token = token_to_eat -> Stream.junk stream
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
 
 let list_of parsr stream =
     let rec list_of acc =
@@ -53,22 +54,24 @@ let rec arguments stream =
 and expression stream =
     let expr = (match Stream.peek stream with
     | Some {token = Character character} ->
+            Stream.junk stream;
             Ast.Character character
     | Some {token = Identifier called_function_name} ->
+            Stream.junk stream;
             function_call called_function_name stream
     | Some {token = Int integer} ->
+            Stream.junk stream;
             Ast.Int integer
     | Some {token = String string_literal} ->
+            Stream.junk stream;
             Ast.String string_literal
     ) in
-    Stream.junk stream;
     expr
 
 and function_call called_function_name stream =
     eat LeftParenthesis stream;
     let arguments = arguments stream in
     eat RightParenthesis stream;
-    eat SemiColon stream;
     Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
 
 let identifier stream = match Stream.peek stream with
@@ -78,6 +81,8 @@ let identifier stream = match Stream.peek stream with
 
 let rec array_type typ stream = match Stream.peek stream with
     | Some {token = LeftSquareBracket} ->
+            eat LeftSquareBracket stream;
+            eat RightSquareBracket stream;
             array_type (Ast.Pointer typ) stream
     | _ -> typ
 
@@ -100,16 +105,32 @@ let parameter stream =
         Ast.parameter_name;
     }
 
-let parameters stream = match Stream.peek stream with
+let rec parameters stream =
+    match Stream.peek stream with
     | Some {token = RightParenthesis} -> []
-    | _ -> let parameter = parameter stream in
-           [parameter]
+    | _ ->  let parameter = parameter stream in
+            let next_parameters = (match Stream.peek stream with
+            | Some {token = RightParenthesis} -> []
+            | Some {token = Comma} -> Stream.junk stream; parameters stream
+            ) in
+            parameter :: next_parameters
 
 let equal_value stream =
     eat Equal stream;
     let expression = expression stream in
     eat SemiColon stream;
     expression
+
+let expression_statement stream =
+    let expr = expression stream in
+    eat SemiColon stream;
+    Ast.Expression expr
+
+let return_statement stream =
+    eat Return stream;
+    let expression = expression stream in
+    eat SemiColon stream;
+    Ast.Return expression
 
 let variable_declaration stream =
     let variable_type = typ stream in
@@ -118,17 +139,16 @@ let variable_declaration stream =
     Ast.VariableDeclaration {Ast.variable_type; Ast.variable_name; Ast.variable_value}
 
 let statement stream =
-    eat Return stream;
-    let expression = expression stream in
-    eat SemiColon stream;
-    Ast.Return expression
-    (*| [< '{token = Identifier _} >] ->
-            either parsr
-            [ variable_declaration
-            ; Ast.Expression expression
-            ]*)
+    match Stream.peek stream with
+    | Some {token = Return} -> return_statement stream
+    | Some {token = Identifier identifier} -> expression_statement stream
 
-let statements stream = [statement stream]
+let rec statements stream =
+    match Stream.peek stream with
+    | Some {token = RightCurlyBracket} -> []
+    | _ ->
+            let statement = statement stream in
+            statement :: statements stream
 
 let declaration stream =
     let return_type = typ stream in

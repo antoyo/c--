@@ -82,6 +82,8 @@ val close : t -> unit
 
 val create : string -> t
 
+val string_of_token : token_with_position -> string
+
 val trace : token_with_position -> unit
 
 val tokens : t -> token_with_position Stream.t
