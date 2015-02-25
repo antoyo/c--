@@ -3,3 +3,8 @@
 .omakedb.lock
 OMakefile.omc
 OMakeroot.omc
+*.cmi
+*.cmx
+*.o
+c--
+*.opt

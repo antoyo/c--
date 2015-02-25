@@ -16,7 +16,7 @@
  *)
 
 (*
- * TODO: Create helper functions like ends_with to help creating list of things.
+ * TODO: Create helper functions like list_of, ends_with to help creating list of things.
  *)
 
 open Lexer
@@ -25,6 +25,11 @@ type t = {
     tokens: token_with_position Stream.t;
     parser_lexer: Lexer.t;
 }
+
+let types = Hashtbl.create 20
+
+let () =
+    Hashtbl.add types "int" 0
 
 exception ParseError of Lexer.error_message
 
@@ -35,30 +40,43 @@ let eat token_to_eat stream = match Stream.peek stream with
     | Some {token} when token = token_to_eat -> Stream.junk stream
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
 
-let list_of parsr stream =
-    let rec list_of acc =
-        try
-            list_of (parsr stream :: acc)
-        with Stream.Failure -> acc
-    in List.rev (list_of [])
-
-let optional stream parsr =
+let optional parsr stream =
     try
         Some (parsr stream)
-    with Stream.Failure -> None
+    with ParseError _ -> None
+
+let variable_expression variable_name =
+    Ast.Variable variable_name
+
+let post_incrementation variable_name stream =
+    eat PlusPlus stream;
+    Ast.Increment variable_name
 
 let rec arguments stream =
     let expression = expression stream in
     [expression]
+
+and variable_assignment variable_name stream =
+    eat Equal stream;
+    let variable_value = expression stream in
+    Ast.Assignment {variable_name; variable_value}
 
 and expression stream =
     let expr = (match Stream.peek stream with
     | Some {token = Character character} ->
             Stream.junk stream;
             Ast.Character character
-    | Some {token = Identifier called_function_name} ->
+    | Some {token = Identifier identifier} ->
             Stream.junk stream;
-            function_call called_function_name stream
+            (match Stream.peek stream with
+            | Some {token = LeftParenthesis} ->
+                    function_call identifier stream
+            | Some {token = Equal} ->
+                    variable_assignment identifier stream
+            | Some {token = PlusPlus} ->
+                    post_incrementation identifier stream
+            | _ -> variable_expression identifier
+            )
     | Some {token = Int integer} ->
             Stream.junk stream;
             Ast.Int integer
@@ -118,7 +136,6 @@ let rec parameters stream =
 let equal_value stream =
     eat Equal stream;
     let expression = expression stream in
-    eat SemiColon stream;
     expression
 
 let expression_statement stream =
@@ -135,13 +152,30 @@ let return_statement stream =
 let variable_declaration stream =
     let variable_type = typ stream in
     let variable_name = identifier stream in
-    let variable_value = optional stream equal_value in
+    let variable_value = optional equal_value stream in
+    eat SemiColon stream;
     Ast.VariableDeclaration {Ast.variable_type; Ast.variable_name; Ast.variable_value}
+
+let constant_declaration stream =
+    eat Const stream;
+    let constant_type = typ stream in
+    let constant_name = identifier stream in
+    let constant_value = equal_value stream in
+    eat SemiColon stream;
+    Ast.ConstantDeclaration {Ast.constant_type; Ast.constant_name; Ast.constant_value}
 
 let statement stream =
     match Stream.peek stream with
     | Some {token = Return} -> return_statement stream
-    | Some {token = Identifier identifier} -> expression_statement stream
+    | Some {token = Identifier identifier} ->
+            (try
+                let _ = Hashtbl.find types identifier in
+                variable_declaration stream
+            with Not_found ->
+                expression_statement stream
+            )
+    | Some {token = Const} ->
+            constant_declaration stream
 
 let rec statements stream =
     match Stream.peek stream with
