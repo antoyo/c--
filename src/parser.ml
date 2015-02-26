@@ -29,6 +29,7 @@ type t = {
 let types = Hashtbl.create 20
 
 let () =
+    Hashtbl.add types "char" 0;
     Hashtbl.add types "int" 0
 
 exception ParseError of Lexer.error_message
@@ -96,6 +97,8 @@ and comparison_variable_expression identifier stream =
             Stream.junk stream;
             let expr = expression stream in
             Ast.NotEqual (variable_expression identifier, expr)
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
 
 and expression stream =
     let expr = (match Stream.peek stream with
@@ -229,7 +232,17 @@ and if_statement stream =
                 Some statements
         | _ -> None
     in
-    Ast.If { Ast.else_statements; Ast.if_condition; if_statements }
+    Ast.If { Ast.else_statements; Ast.if_condition; Ast.if_statements }
+
+and while_statement stream =
+    eat While stream;
+    eat LeftParenthesis stream;
+    let while_condition = expression stream in
+    eat RightParenthesis stream;
+    eat LeftCurlyBracket stream;
+    let while_statements = statements stream in
+    eat RightCurlyBracket stream;
+    Ast.While { Ast.while_condition; Ast.while_statements }
 
 and statement stream =
     match Stream.peek stream with
@@ -245,6 +258,8 @@ and statement stream =
             constant_declaration stream
     | Some {token = If} ->
             if_statement stream
+    | Some {token = While} ->
+            while_statement stream
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
     | None -> failwith "Unreachable code."
 
