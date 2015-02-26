@@ -39,6 +39,15 @@ let parse_error error_message error_position =
 let eat token_to_eat stream = match Stream.peek stream with
     | Some {token} when token = token_to_eat -> Stream.junk stream
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
+    | None -> failwith "Unreachable code."
+
+let rec either = function
+    | [] -> failwith "Unreachable code."
+    | expr :: rest ->
+            try
+                Lazy.force expr
+            with ParseError _ ->
+                either rest
 
 let optional parsr stream =
     try
@@ -59,7 +68,34 @@ let rec arguments stream =
 and variable_assignment variable_name stream =
     eat Equal stream;
     let variable_value = expression stream in
-    Ast.Assignment {variable_name; variable_value}
+    Ast.Assignment {Ast.variable_name; Ast.variable_value}
+
+and comparison_variable_expression identifier stream =
+    match Stream.peek stream with
+    | Some {token = Greater} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.Greater (variable_expression identifier, expr)
+    | Some {token = GreaterOrEqual} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.GreaterOrEqual (variable_expression identifier, expr)
+    | Some {token = IsEqual} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.Equals (variable_expression identifier, expr)
+    | Some {token = Lesser} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.Lesser (variable_expression identifier, expr)
+    | Some {token = LesserOrEqual} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.LesserOrEqual (variable_expression identifier, expr)
+    | Some {token = NotEqual} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            Ast.NotEqual (variable_expression identifier, expr)
 
 and expression stream =
     let expr = (match Stream.peek stream with
@@ -68,21 +104,21 @@ and expression stream =
             Ast.Character character
     | Some {token = Identifier identifier} ->
             Stream.junk stream;
-            (match Stream.peek stream with
-            | Some {token = LeftParenthesis} ->
-                    function_call identifier stream
-            | Some {token = Equal} ->
-                    variable_assignment identifier stream
-            | Some {token = PlusPlus} ->
-                    post_incrementation identifier stream
-            | _ -> variable_expression identifier
-            )
+            either
+            [ lazy (function_call identifier stream)
+            ; lazy (variable_assignment identifier stream)
+            ; lazy (post_incrementation identifier stream)
+            ; lazy (comparison_variable_expression identifier stream)
+            ; lazy (variable_expression identifier)
+            ]
     | Some {token = Int integer} ->
             Stream.junk stream;
             Ast.Int integer
     | Some {token = String string_literal} ->
             Stream.junk stream;
             Ast.String string_literal
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
     ) in
     expr
 
@@ -96,6 +132,8 @@ let identifier stream = match Stream.peek stream with
     | Some {token = Identifier identifier} ->
             Stream.junk stream;
             identifier
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
 
 let rec array_type typ stream = match Stream.peek stream with
     | Some {token = LeftSquareBracket} ->
@@ -130,6 +168,8 @@ let rec parameters stream =
             let next_parameters = (match Stream.peek stream with
             | Some {token = RightParenthesis} -> []
             | Some {token = Comma} -> Stream.junk stream; parameters stream
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+            | None -> failwith "Unreachable code."
             ) in
             parameter :: next_parameters
 
@@ -164,7 +204,34 @@ let constant_declaration stream =
     eat SemiColon stream;
     Ast.ConstantDeclaration {Ast.constant_type; Ast.constant_name; Ast.constant_value}
 
-let statement stream =
+let rec statements stream =
+    match Stream.peek stream with
+    | Some {token = RightCurlyBracket} -> []
+    | _ ->
+            let statement = statement stream in
+            statement :: statements stream
+
+and if_statement stream =
+    eat If stream;
+    eat LeftParenthesis stream;
+    let if_condition = expression stream in
+    eat RightParenthesis stream;
+    eat LeftCurlyBracket stream;
+    let if_statements = statements stream in
+    eat RightCurlyBracket stream;
+    let else_statements =
+        match Stream.peek stream with
+        | Some {token = Else} ->
+                Stream.junk stream;
+                eat LeftCurlyBracket stream;
+                let statements = statements stream in
+                eat RightCurlyBracket stream;
+                Some statements
+        | _ -> None
+    in
+    Ast.If { Ast.else_statements; Ast.if_condition; if_statements }
+
+and statement stream =
     match Stream.peek stream with
     | Some {token = Return} -> return_statement stream
     | Some {token = Identifier identifier} ->
@@ -176,13 +243,10 @@ let statement stream =
             )
     | Some {token = Const} ->
             constant_declaration stream
-
-let rec statements stream =
-    match Stream.peek stream with
-    | Some {token = RightCurlyBracket} -> []
-    | _ ->
-            let statement = statement stream in
-            statement :: statements stream
+    | Some {token = If} ->
+            if_statement stream
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
 
 let declaration stream =
     let return_type = typ stream in
