@@ -8,3 +8,4 @@ OMakeroot.omc
 *.o
 c--
 *.opt
+tmp
