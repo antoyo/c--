@@ -55,6 +55,19 @@ let optional parsr stream =
         Some (parsr stream)
     with ParseError _ -> None
 
+let separated_by parsr separator stream =
+    let rec separated_by elements =
+        try
+            let element = parsr stream in
+            match Stream.peek stream with
+            | Some {token} when token = separator ->
+                    Stream.junk stream;
+                    separated_by (element :: elements)
+            | _ -> element :: elements
+        with ParseError _ ->
+            elements
+    in List.rev (separated_by [])
+
 let variable_expression variable_name =
     Ast.Variable variable_name
 
@@ -62,9 +75,9 @@ let post_incrementation variable_name stream =
     eat PlusPlus stream;
     Ast.Increment variable_name
 
-let rec arguments stream =
-    let expression = expression stream in
-    [expression]
+let rec argument stream = expression stream
+
+and arguments stream = separated_by argument Comma stream
 
 and variable_assignment variable_name stream =
     eat Equal stream;
@@ -164,17 +177,7 @@ let parameter stream =
         Ast.parameter_name;
     }
 
-let rec parameters stream =
-    match Stream.peek stream with
-    | Some {token = RightParenthesis} -> []
-    | _ ->  let parameter = parameter stream in
-            let next_parameters = (match Stream.peek stream with
-            | Some {token = RightParenthesis} -> []
-            | Some {token = Comma} -> Stream.junk stream; parameters stream
-            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-            | None -> failwith "Unreachable code."
-            ) in
-            parameter :: next_parameters
+let rec parameters stream = separated_by parameter Comma stream
 
 let equal_value stream =
     eat Equal stream;
