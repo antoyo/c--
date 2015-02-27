@@ -73,7 +73,15 @@ let separated_by parsr separator stream =
 let variable_expression variable_name =
     Ast.Variable variable_name
 
-let post_incrementation variable_name stream =
+let identifier stream = match Stream.peek stream with
+    | Some {token = Identifier identifier} ->
+            Stream.junk stream;
+            identifier
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
+
+let post_incrementation stream =
+    let variable_name = identifier stream in
     eat PlusPlus stream;
     Ast.Increment variable_name
 
@@ -86,72 +94,106 @@ and variable_assignment variable_name stream =
     let variable_value = expression stream in
     Ast.Assignment {Ast.variable_name; Ast.variable_value}
 
-and comparison_variable_expression identifier stream =
+and factor stream =
     match Stream.peek stream with
-    | Some {token = Greater} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.Greater (variable_expression identifier, expr)
-    | Some {token = GreaterOrEqual} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.GreaterOrEqual (variable_expression identifier, expr)
-    | Some {token = IsEqual} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.Equals (variable_expression identifier, expr)
-    | Some {token = Lesser} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.Lesser (variable_expression identifier, expr)
-    | Some {token = LesserOrEqual} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.LesserOrEqual (variable_expression identifier, expr)
-    | Some {token = NotEqual} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            Ast.NotEqual (variable_expression identifier, expr)
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
-
-and expression stream =
-    let expr = (match Stream.peek stream with
-    | Some {token = Character character} ->
-            Stream.junk stream;
-            Ast.Character character
-    | Some {token = Identifier identifier} ->
-            Stream.junk stream;
-            either
-            [ lazy (function_call identifier stream)
-            ; lazy (variable_assignment identifier stream)
-            ; lazy (post_incrementation identifier stream)
-            ; lazy (comparison_variable_expression identifier stream)
-            ; lazy (variable_expression identifier)
-            ]
     | Some {token = Int integer} ->
             Stream.junk stream;
             Ast.Int integer
-    | Some {token = String string_literal} ->
+    | Some {token = String str} ->
             Stream.junk stream;
-            Ast.String string_literal
+            Ast.String str
+    | Some {token = Character str} ->
+            Stream.junk stream;
+            Ast.Character str
+    | Some {token = Identifier identifier} ->
+            Stream.junk stream;
+            Ast.Variable identifier
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
     | None -> failwith "Unreachable code."
-    ) in
-    expr
 
-and function_call called_function_name stream =
+and precedence70 stream expr =
+    match Stream.peek stream with
+    | Some {token = Equal} ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    variable_assignment variable_name stream
+            | _ -> failwith "Expected variable before `=` token."
+            )
+    | _ -> expr
+
+and precedence30 stream expr1 =
+    match Stream.peek stream with
+    | Some {token = Greater} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.Greater (expr1, expr2)
+    | Some {token = GreaterOrEqual} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.GreaterOrEqual (expr1, expr2)
+    | Some {token = IsEqual} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.Equals (expr1, expr2)
+    | Some {token = Lesser} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.Lesser (expr1, expr2)
+    | Some {token = LesserOrEqual} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.LesserOrEqual (expr1, expr2)
+    | Some {token = NotEqual} ->
+            Stream.junk stream;
+            let expr2 = expression stream in
+            Ast.NotEqual (expr1, expr2)
+    | _ -> precedence70 stream expr1
+
+and precedence20 stream expr1 =
+    match Stream.peek stream with
+    | Some {token = Plus} ->
+            Stream.junk stream;
+            let expr2 = precedence5 stream in
+            precedence20 stream (Ast.Operation (Ast.Addition (expr1, expr2)))
+    | Some {token = Minus} ->
+            Stream.junk stream;
+            let expr2 = precedence5 stream in
+            precedence20 stream (Ast.Operation (Ast.Subtraction (expr1, expr2)))
+    | _ -> precedence30 stream expr1
+
+and precedence15 stream expr1 =
+    match Stream.peek stream with
+    | Some {token = Star} ->
+            Stream.junk stream;
+            let expr2 = factor stream in
+            precedence15 stream (Ast.Operation (Ast.Multiplication (expr1, expr2)))
+    | Some {token = Slash} ->
+            Stream.junk stream;
+            let expr2 = factor stream in
+            precedence15 stream (Ast.Operation (Ast.Division (expr1, expr2)))
+    | Some {token = Modulo} ->
+            Stream.junk stream;
+            let expr2 = factor stream in
+            precedence15 stream (Ast.Operation (Ast.Modulo (expr1, expr2)))
+    | _ -> expr1
+
+and precedence5 stream =
+    match Stream.npeek 2 stream with
+    | [_; {token = LeftParenthesis}] -> function_call stream
+    | [_; {token = PlusPlus}] -> post_incrementation stream
+    | _ ->  let expr1 = factor stream in
+            precedence15 stream expr1
+
+and expression stream =
+    let expr1 = precedence5 stream in
+    precedence20 stream expr1
+
+and function_call stream =
+    let called_function_name = identifier stream in
     eat LeftParenthesis stream;
     let arguments = arguments stream in
     eat RightParenthesis stream;
     Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
-
-let identifier stream = match Stream.peek stream with
-    | Some {token = Identifier identifier} ->
-            Stream.junk stream;
-            identifier
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
 
 let rec array_type typ stream = match Stream.peek stream with
     | Some {token = LeftSquareBracket} ->
