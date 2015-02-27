@@ -273,5 +273,17 @@ let interpret filename =
     let ast = FileParser.parse filename in
     List.iter execute ast;
     if List.length ast > 0
-        then let _ = execute_expression (FunctionCall { called_function_name = "main"; arguments = [] }) in ()
+        then
+            match get_function "main" with
+            | Some (FunctionDeclaration {parameters}) ->
+                    let _ =
+                    match List.length parameters with
+                    | 0 -> execute_expression (FunctionCall { called_function_name = "main"; arguments = [] })
+                    | 2 ->  let argc = Ast.Int (Array.length Sys.argv) in
+                            let argv = Ast.Array (Array.map (fun str -> Ast.String str) Sys.argv) in
+                            execute_expression (FunctionCall { called_function_name = "main"; arguments = [argc; argv] })
+                    | _ -> print_endline "Wrong number of parameters for the main function."; Ast.String "Error"
+                    in ()
+                    
+            | None -> print_endline "Error: no main function."
         else ()

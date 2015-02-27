@@ -296,7 +296,6 @@ let escape_char reader = function
 
 let escape_char_string reader = function
     | '"' -> '"'
-    | '\n' -> '\n'
     | character -> escape_char reader character
 
 let get_string reader =
@@ -305,7 +304,8 @@ let get_string reader =
         | '\\' ->
                 FileReader.next_char reader;
                 FileReader.next_char reader;
-                Buffer.add_char buffer (escape_char_string reader (FileReader.get_char reader));
+                if FileReader.get_char reader <> '\n'
+                    then Buffer.add_char buffer (escape_char_string reader (FileReader.get_char reader));
                 get_string buffer
         | '"' ->
                 let token = String (Buffer.contents buffer) in

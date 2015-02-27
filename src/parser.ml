@@ -17,6 +17,8 @@
 
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
+ * TODO: Try to parse complex expression like:
+ * if(number + 4 < 50 - 10)
  *)
 
 open Lexer

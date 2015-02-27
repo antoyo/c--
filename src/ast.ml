@@ -18,6 +18,7 @@
 type expr =
     | Assignment of assignment
     | AssignmentOperation of assignment_operation
+    | Array of expr array
     | Character of char
     | Decrement of string
     | Equals of expr * expr

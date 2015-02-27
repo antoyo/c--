@@ -11,10 +11,11 @@ int main(int argc, char* argv[]) {
     putc('a');
     putc('\\');
     putc('\'');
-    putc('\b');
+    puts("");
+    putc('a');
     putc('\t');
+    putc('b');
     putc('\n');
-    putc('\r');
-    puts("Helll\bo\tWorld!\r\"Bonjour\n\\");
+    puts("Helllo\tWorld!\"Bonjour\n\\");
     return 0;
 }
