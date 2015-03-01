@@ -1,13 +1,12 @@
 int main() {
     int i = 0;
     while(i < 5) {
-        puti(i);
-        puts("");
+        printf("%d\n", i);
         i++;
     }
     char letter = 'a';
     while(letter <= 'z') {
-        putc(letter);
+        printf("%c", letter);
         letter++;
     }
     puts("");

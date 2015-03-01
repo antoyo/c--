@@ -11,6 +11,7 @@ Feature: Output
         Hello world!
         Hello            World!
         12
+        42, 24: 12
         a\'
         a	b
         Helllo	World!"Bonjour

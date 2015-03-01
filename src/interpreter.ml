@@ -44,6 +44,15 @@ let get_variable name = Hashtbl.find variables name
 
 let set_variable_value name value = Hashtbl.replace variables name (Some value)
 
+let split str delimiter =
+    try
+        let char_index = String.index str delimiter in
+        let start_index = char_index + 2 in
+        let end_index = String.length str - start_index in
+        (String.sub str 0 char_index, String.sub str char_index 2, String.sub str start_index end_index)
+    with Not_found ->
+        (str, "", "")
+
 let rec add_variables_from_arguments parameters arguments =
     match (parameters, arguments) with
     | ([], []) -> ()
@@ -83,9 +92,8 @@ let rec execute_expression = function
     | AssignmentOperation assignment_operation -> execute_assignment_operation assignment_operation
     | Character _ | Int _ | String _ as value -> value
     | Decrement variable_name -> change_variable variable_name (fun value -> value - 1)
-    | FunctionCall { called_function_name = "putc"; arguments = parameters } -> putc parameters; Void
-    | FunctionCall { called_function_name = "puti"; arguments = parameters } -> puti parameters; Void
     | FunctionCall { called_function_name = "puts"; arguments = parameters } -> puts parameters; Void
+    | FunctionCall { called_function_name = "printf"; arguments = parameters } -> printf parameters; Void
     | FunctionCall function_call -> call_function function_call 
     | Increment variable_name -> change_variable variable_name (fun value -> value + 1)
     | Indirection indirection -> execute_indirection indirection
@@ -241,22 +249,6 @@ and is_true = function
             let result = compare_expression expression1 expression2 in
             result <> 0
 
-and putc = function
-    | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [expression] -> (match execute_expression expression with
-        | Character character -> print_string (String.make 1 character)
-        | _ -> print_endline "One character parameter is expected."
-    )
-    | _ -> print_endline "One character parameter is expected."
-
-and puti = function
-    | _ :: _ :: [] -> print_endline "Too much parameter."
-    | [expression] -> (match execute_expression expression with
-        | Int integer -> print_int integer
-        | _ -> print_endline "One integer parameter is expected."
-    )
-    | _ -> print_endline "One integer parameter is expected."
-
 and puts = function
     | _ :: _ :: [] -> print_endline "Too much parameter."
     | [expression] -> (match execute_expression expression with
@@ -264,6 +256,30 @@ and puts = function
         | _ -> print_endline "One string parameter is expected."
     )
     | _ -> print_endline "One string parameter is expected."
+
+and printf = function
+    | [] -> print_endline "At least one string parameter is expected."
+    | [expression] -> (match execute_expression expression with
+        | String string_literal -> print_string string_literal
+        | _ -> print_endline "The first parameter should be a string."
+    )
+    | format_expression :: arguments -> (match execute_expression format_expression with
+        | String format_string -> print_string (format_arguments format_string arguments)
+        | _ -> print_endline "The first parameter should be a string."
+    )
+
+and format_arguments format_string = function
+    | [] -> format_string
+    | x :: xs -> let (str, format_parameter, rest) = split format_string '%' in
+                 str ^ string_of_expression x format_parameter ^ format_arguments rest xs
+
+and string_of_expression expr = function
+    | "%d" -> (match execute_expression expr with
+              | Int integer -> string_of_int integer
+    )
+    | "%c" -> (match execute_expression expr with
+              | Character character -> String.make 1 character
+    )
 
 let execute = function
     | FunctionDeclaration { return_type; function_name; parameters; statements } as fnctn ->

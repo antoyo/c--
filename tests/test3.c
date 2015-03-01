@@ -1,19 +1,14 @@
 int main() {
     int variable = 12;
-    puti(variable);
-    puts("");
+    printf("%d\n", variable);
     int v2;
     v2 = 42;
-    puti(v2);
-    puts("");
+    printf("%d\n", v2);
     v2 = 24;
-    puti(v2);
-    puts("");
+    printf("%d\n", v2);
     v2++;
-    puti(v2);
-    puts("");
+    printf("%d\n", v2);
     const int NOMBRE = 10;
-    puti(NOMBRE);
-    puts("");
+    printf("%d\n", NOMBRE);
     return 0;
 }

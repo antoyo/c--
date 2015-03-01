@@ -4,8 +4,8 @@ int main() {
         puts("Hello World!");
     }
     for(int j = 0 ; j < 10 ; j++) {
-        putc('j');
-        putc(' ');
+        printf("%c", 'j');
+        printf("%c", ' ');
     }
     puts("");
     return 0;

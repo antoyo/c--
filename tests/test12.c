@@ -1,10 +1,8 @@
 int main() {
     int variable = 10;
     int new_variable = add(variable);
-    puti(new_variable);
-    puts("");
-    puti(add(40));
-    puts("");
+    printf("%d\n", new_variable);
+    printf("%d\n", add(40));
     return 0;
 }
 

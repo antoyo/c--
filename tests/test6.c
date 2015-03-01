@@ -13,13 +13,10 @@ int number() {
 
 int main() {
     int my_number = number();
-    puti(my_number);
-    puts("");
+    printf("%d\n", my_number);
     int nombre = max(42, 5);
-    puti(nombre);
-    puts("");
+    printf("%d\n", nombre);
     nombre = max(42, 50);
-    puti(nombre);
-    puts("");
+    printf("%d\n", nombre);
     return 0;
 }

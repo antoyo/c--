@@ -1,10 +1,8 @@
 int main() {
     char* string = "hello world!";
-    putc(string[0]);
-    puts("");
+    printf("%c\n", string[0]);
 
     char* otherString = string;
-    putc(otherString[0]);
-    puts("");
+    printf("%c\n", otherString[0]);
     return 0;
 }
