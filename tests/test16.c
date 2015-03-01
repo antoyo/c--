@@ -10,5 +10,9 @@ int main() {
     printf("%d\n", 10 / 2 + 2 * 5);
     printf("%d\n", 10 / 2 - 2 * 5);
     printf("%d\n", 10 - 2 - 5);
+
+    if(nombre + 40 < 50 - 10) {
+        puts("yes");
+    }
     return 0;
 }

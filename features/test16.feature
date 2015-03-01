@@ -15,5 +15,6 @@ Feature: Output
         15
         -5
         3
+        yes
 
         """
