@@ -86,4 +86,6 @@ val string_of_token : token_with_position -> string
 
 val trace : token_with_position -> unit
 
+val trace_stream : token_with_position Stream.t -> unit
+
 val tokens : t -> token_with_position Stream.t

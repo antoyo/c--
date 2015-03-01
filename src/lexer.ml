@@ -150,6 +150,10 @@ let string_of_token = function
 
 let trace token = print_endline (string_of_token token)
 
+let trace_stream stream = match Stream.peek stream with
+    | Some token -> trace token
+    | None -> ()
+
 let keyword_list =
     [ ("break", Break)
     ; ("case", Case)
