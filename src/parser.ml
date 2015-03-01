@@ -17,8 +17,7 @@
 
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
- * TODO: Try to parse complex expression like:
- * if(number + 4 < 50 - 10)
+ * TODO: parse mathematical expressions with parentheses.
  *)
 
 open Lexer
@@ -243,8 +242,12 @@ let variable_declaration stream =
     let variable_type = typ stream in
     let variable_name = identifier stream in
     let variable_value = optional equal_value stream in
+    {Ast.variable_type; Ast.variable_name; Ast.variable_value}
+
+let variable_declaration_statement stream =
+    let declaration = variable_declaration stream in
     eat SemiColon stream;
-    Ast.VariableDeclaration {Ast.variable_type; Ast.variable_name; Ast.variable_value}
+    Ast.VariableDeclaration declaration
 
 let constant_declaration stream =
     eat Const stream;
@@ -291,18 +294,44 @@ and while_statement stream =
     eat RightCurlyBracket stream;
     Ast.While { Ast.while_condition; Ast.while_statements }
 
+and for_initialization stream =
+    try
+        match Stream.peek stream with
+        | Some {token = Identifier identifier} ->
+                let _ = Hashtbl.find types identifier in
+                Ast.ForVariableDeclaration (variable_declaration stream)
+        | _ -> failwith "Unreachable code."
+    with Not_found ->
+        Ast.ForExpression (expression stream)
+
+and for_statement stream =
+    eat For stream;
+    eat LeftParenthesis stream;
+    let for_init = for_initialization stream in
+    eat SemiColon stream;
+    let for_condition = expression stream in
+    eat SemiColon stream;
+    let for_increment = expression stream in
+    eat RightParenthesis stream;
+    eat LeftCurlyBracket stream;
+    let for_statements = statements stream in
+    eat RightCurlyBracket stream;
+    Ast.For { Ast.for_init; Ast.for_condition; Ast.for_increment; Ast.for_statements }
+
 and statement stream =
     match Stream.peek stream with
     | Some {token = Return} -> return_statement stream
     | Some {token = Identifier identifier} ->
             (try
                 let _ = Hashtbl.find types identifier in
-                variable_declaration stream
+                variable_declaration_statement stream
             with Not_found ->
                 expression_statement stream
             )
     | Some {token = Const} ->
             constant_declaration stream
+    | Some {token = For} ->
+            for_statement stream
     | Some {token = If} ->
             if_statement stream
     | Some {token = While} ->
