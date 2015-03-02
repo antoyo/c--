@@ -179,6 +179,7 @@ and precedence15 stream expr1 =
 and precedence5 stream =
     match Stream.npeek 2 stream with
     | [_; {token = LeftParenthesis}] -> function_call stream
+    | [_; {token = LeftSquareBracket}] -> array_index stream
     | [_; {token = PlusPlus}] -> post_incrementation stream
     | _ ->  let expr1 = factor stream in
             precedence15 stream expr1
@@ -186,6 +187,13 @@ and precedence5 stream =
 and expression stream =
     let expr1 = precedence5 stream in
     precedence20 stream expr1
+
+and array_index stream =
+    let indirection_name = identifier stream in
+    eat LeftSquareBracket stream;
+    let indirection_index = expression stream in
+    eat RightSquareBracket stream;
+    Ast.Indirection {Ast.indirection_name; Ast.indirection_index}
 
 and function_call stream =
     let called_function_name = identifier stream in
