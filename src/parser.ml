@@ -31,6 +31,7 @@ let types = Hashtbl.create 20
 
 let () =
     Hashtbl.add types "char" 0;
+    Hashtbl.add types "float" 0;
     Hashtbl.add types "int" 0
 
 exception ParseError of Lexer.error_message
@@ -125,6 +126,9 @@ and assignment_modulo variable_name stream =
 
 and factor stream =
     match Stream.peek stream with
+    | Some {token = Float floating} ->
+            Stream.junk stream;
+            Ast.Float floating
     | Some {token = Int integer} ->
             Stream.junk stream;
             Ast.Int integer

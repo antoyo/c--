@@ -22,6 +22,7 @@ type expr =
     | Character of char
     | Decrement of string
     | Equals of expr * expr
+    | Float of float
     | FunctionCall of function_call
     | Greater of expr * expr
     | GreaterOrEqual of expr * expr

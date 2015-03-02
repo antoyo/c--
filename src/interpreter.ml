@@ -90,7 +90,7 @@ let rec execute_expression = function
             set_variable_value variable_name (execute_expression variable_value);
             variable_value
     | AssignmentOperation assignment_operation -> execute_assignment_operation assignment_operation
-    | Character _ | Int _ | String _ as value -> value
+    | Character _ | Float _ | Int _ | String _ as value -> value
     | Decrement variable_name -> change_variable variable_name (fun value -> value - 1)
     | FunctionCall { called_function_name = "puts"; arguments = parameters } -> puts parameters; Void
     | FunctionCall { called_function_name = "printf"; arguments = parameters } -> printf parameters; Void
@@ -274,11 +274,14 @@ and format_arguments format_string = function
                  str ^ string_of_expression x format_parameter ^ format_arguments rest xs
 
 and string_of_expression expr = function
+    | "%c" -> (match execute_expression expr with
+              | Character character -> String.make 1 character
+    )
     | "%d" -> (match execute_expression expr with
               | Int integer -> string_of_int integer
     )
-    | "%c" -> (match execute_expression expr with
-              | Character character -> String.make 1 character
+    | "%f" -> (match execute_expression expr with
+              | Float floating -> Printf.sprintf "%.6f" floating
     )
 
 let execute = function
