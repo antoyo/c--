@@ -301,6 +301,11 @@ let expression_statement stream =
     eat SemiColon stream;
     Ast.Expression expr
 
+let break_statement stream =
+    eat Break stream;
+    eat SemiColon stream;
+    Ast.Break
+
 let return_statement stream =
     eat Return stream;
     let expression = expression stream in
@@ -329,6 +334,8 @@ let constant_declaration stream =
 let rec statements stream =
     match Stream.peek stream with
     | Some {token = RightCurlyBracket} -> []
+    | Some {token = Case} -> []
+    | Some {token = Default} -> []
     | _ ->
             let statement = statement stream in
             statement :: statements stream
@@ -352,6 +359,35 @@ and if_statement stream =
         | _ -> None
     in
     Ast.If { Ast.else_statements; Ast.if_condition; Ast.if_statements }
+
+and case_list stream =
+    match Stream.peek stream with
+    | Some {token = RightCurlyBracket} -> []
+    | Some {token = Case} ->
+            Stream.junk stream;
+            let case_condition = expression stream in
+            eat Colon stream;
+            let case_instructions = statements stream in
+            let next_cases = case_list stream in
+            Ast.Case {Ast.case_condition; Ast.case_instructions} :: next_cases
+    | Some {token = Default} ->
+            Stream.junk stream;
+            eat Colon stream;
+            let statements = statements stream in
+            let next_cases = case_list stream in
+            Ast.Default statements :: next_cases
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
+
+and switch_statement stream =
+    eat Switch stream;
+    eat LeftParenthesis stream;
+    let switch_expression = expression stream in
+    eat RightParenthesis stream;
+    eat LeftCurlyBracket stream;
+    let switch_conditions = case_list stream in
+    eat RightCurlyBracket stream;
+    Ast.Switch { Ast.switch_expression; Ast.switch_conditions }
 
 and while_statement stream =
     eat While stream;
@@ -401,6 +437,7 @@ and for_statement stream =
 
 and statement stream =
     match Stream.peek stream with
+    | Some {token = Break} -> break_statement stream
     | Some {token = Return} -> return_statement stream
     | Some {token = Identifier identifier} ->
             (try
@@ -417,6 +454,8 @@ and statement stream =
             for_statement stream
     | Some {token = If} ->
             if_statement stream
+    | Some {token = Switch} ->
+            switch_statement stream
     | Some {token = While} ->
             while_statement stream
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
