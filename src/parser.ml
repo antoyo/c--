@@ -84,6 +84,11 @@ let post_incrementation stream =
     eat PlusPlus stream;
     Ast.Increment variable_name
 
+let post_decrementation stream =
+    let variable_name = identifier stream in
+    eat MinusMinus stream;
+    Ast.Decrement variable_name
+
 let rec argument stream = expression stream
 
 and arguments stream = separated_by argument Comma stream
@@ -92,6 +97,31 @@ and variable_assignment variable_name stream =
     eat Equal stream;
     let variable_value = expression stream in
     Ast.Assignment {Ast.variable_name; Ast.variable_value}
+
+and assignment_add variable_name stream =
+    eat PlusEqual stream;
+    let variable_value = expression stream in
+    Ast.AssignmentOperation (Ast.AssignAdd (variable_name, variable_value))
+
+and assignment_minus variable_name stream =
+    eat MinusEqual stream;
+    let variable_value = expression stream in
+    Ast.AssignmentOperation (Ast.AssignSubtract (variable_name, variable_value))
+
+and assignment_times variable_name stream =
+    eat TimesEqual stream;
+    let variable_value = expression stream in
+    Ast.AssignmentOperation (Ast.AssignMultiply (variable_name, variable_value))
+
+and assignment_divide variable_name stream =
+    eat DivideEqual stream;
+    let variable_value = expression stream in
+    Ast.AssignmentOperation (Ast.AssignDivide (variable_name, variable_value))
+
+and assignment_modulo variable_name stream =
+    eat ModuloEqual stream;
+    let variable_value = expression stream in
+    Ast.AssignmentOperation (Ast.AssignModulo (variable_name, variable_value))
 
 and factor stream =
     match Stream.peek stream with
@@ -117,6 +147,36 @@ and precedence70 stream expr =
             | Ast.Variable variable_name ->
                     variable_assignment variable_name stream
             | _ -> failwith "Expected variable before `=` token."
+            )
+    | Some ({token = PlusEqual} as operator_token) ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    assignment_add variable_name stream
+            | _ -> failwith "Expected variable before `+=` token."
+            )
+    | Some ({token = MinusEqual} as operator_token) ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    assignment_minus variable_name stream
+            | _ -> failwith "Expected variable before `-=` token."
+            )
+    | Some ({token = TimesEqual} as operator_token) ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    assignment_times variable_name stream
+            | _ -> failwith "Expected variable before `*=` token."
+            )
+    | Some ({token = DivideEqual} as operator_token) ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    assignment_divide variable_name stream
+            | _ -> failwith "Expected variable before `/=` token."
+            )
+    | Some ({token = ModuloEqual} as operator_token) ->
+            (match expr with
+            | Ast.Variable variable_name ->
+                    assignment_modulo variable_name stream
+            | _ -> failwith "Expected variable before `%=` token."
             )
     | _ -> expr
 
@@ -181,6 +241,7 @@ and precedence5 stream =
     | [_; {token = LeftParenthesis}] -> function_call stream
     | [_; {token = LeftSquareBracket}] -> array_index stream
     | [_; {token = PlusPlus}] -> post_incrementation stream
+    | [_; {token = MinusMinus}] -> post_decrementation stream
     | _ ->  let expr1 = factor stream in
             precedence15 stream expr1
 
