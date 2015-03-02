@@ -294,6 +294,18 @@ and while_statement stream =
     eat RightCurlyBracket stream;
     Ast.While { Ast.while_condition; Ast.while_statements }
 
+and do_while_statement stream =
+    eat Do stream;
+    eat LeftCurlyBracket stream;
+    let while_statements = statements stream in
+    eat RightCurlyBracket stream;
+    eat While stream;
+    eat LeftParenthesis stream;
+    let while_condition = expression stream in
+    eat RightParenthesis stream;
+    eat SemiColon stream;
+    Ast.While { Ast.while_condition; Ast.while_statements }
+
 and for_initialization stream =
     try
         match Stream.peek stream with
@@ -330,6 +342,8 @@ and statement stream =
             )
     | Some {token = Const} ->
             constant_declaration stream
+    | Some {token = Do} ->
+            do_while_statement stream
     | Some {token = For} ->
             for_statement stream
     | Some {token = If} ->
