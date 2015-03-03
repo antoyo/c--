@@ -10,5 +10,6 @@ int main() {
     printf("%d\n", v2);
     const int NOMBRE = 10;
     printf("%d\n", NOMBRE);
+    printf("%d\n", -variable);
     return 0;
 }

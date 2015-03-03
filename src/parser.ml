@@ -18,6 +18,10 @@
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
  * TODO: parse mathematical expressions with parentheses.
+ * TODO: implémenter l’opérateur virgule (et permettre la déclaration de plusieurs variables sur une même ligne).
+ * TODO: parser "else if".
+ * TODO: parser les opérateurs "&&", "||" et "!".
+ * TODO: parser les conditions ternaires.
  *)
 
 open Lexer
@@ -240,14 +244,22 @@ and precedence15 stream expr1 =
             precedence15 stream (Ast.Operation (Ast.Modulo (expr1, expr2)))
     | _ -> expr1
 
+and precedence10 stream =
+    match Stream.peek stream with
+    | Some {token = Minus} ->
+            Stream.junk stream;
+            let expr = factor stream in
+            Ast.Negate expr
+    | _ -> let expr1 = factor stream in
+           precedence15 stream expr1
+
 and precedence5 stream =
     match Stream.npeek 2 stream with
     | [_; {token = LeftParenthesis}] -> function_call stream
     | [_; {token = LeftSquareBracket}] -> array_index stream
     | [_; {token = PlusPlus}] -> post_incrementation stream
     | [_; {token = MinusMinus}] -> post_decrementation stream
-    | _ ->  let expr1 = factor stream in
-            precedence15 stream expr1
+    | _ ->  precedence10 stream
 
 and expression stream =
     let expr1 = precedence5 stream in

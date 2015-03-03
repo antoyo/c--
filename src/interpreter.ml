@@ -97,6 +97,7 @@ let rec execute_expression = function
     | FunctionCall function_call -> call_function function_call 
     | Increment variable_name -> change_variable variable_name (fun value -> value + 1)
     | Indirection indirection -> execute_indirection indirection
+    | Negate expression -> negate_expression expression
     | Operation operation -> execute_operation operation
     | Variable variable -> (match get_variable variable with
         | Some value -> execute_expression value
@@ -104,6 +105,12 @@ let rec execute_expression = function
         | exception Not_found -> print_endline ("The variable "  ^ variable ^ " is not declared."); Void
     )
     | Void -> Void
+
+and negate_expression = function
+    | Int integer -> Int (-integer)
+    | Float floating -> Float (-. floating)
+    | Variable _ as variable -> negate_expression (execute_expression variable)
+    | _ -> print_endline "Can only negate an intger or a floating-point number."; Void
 
 and call_function { called_function_name; arguments } =
     match get_function called_function_name with

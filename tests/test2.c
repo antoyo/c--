@@ -16,5 +16,9 @@ int main(int argc, char* argv[]) {
     printf("%c", 'b');
     printf("%c", '\n');
     puts("Helllo\tWorld!\"Bonjour\n\\");
+    printf("%c%c%c%c\n", 'a', 'c', '\b', 'b');
+    printf("ac\bb\n");
+    printf("%d\n", -42);
+    printf("%f\n", -3.141592);
     return 0;
 }

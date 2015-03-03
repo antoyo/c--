@@ -13,5 +13,6 @@ Feature: Output
         24
         25
         10
+        -12
 
         """

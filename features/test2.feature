@@ -16,5 +16,9 @@ Feature: Output
         a	b
         Helllo	World!"Bonjour
         \
+        acb
+        acb
+        -42
+        -3.141592
 
         """

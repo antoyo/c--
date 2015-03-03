@@ -31,6 +31,7 @@ type expr =
     | Int of int
     | Lesser of expr * expr
     | LesserOrEqual of expr * expr
+    | Negate of expr
     | NotEqual of expr * expr
     | Operation of operation
     | String of string
