@@ -1,0 +1,13 @@
+OASISFormat: 0.4
+Name:        c--
+Version:     0.1
+Synopsis:    C-like Parser Written in OCaml
+Authors:     Antoni Boucher
+License:     GPL-3
+Plugins:     META (0.4), StdFiles (0.4)
+
+Executable "c--"
+  Path:       src
+  BuildTools: ocamlbuild
+  MainIs:     main.ml
+  
