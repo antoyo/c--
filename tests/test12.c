@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+int add(int number);
+
 int main() {
     int variable = 10;
     int new_variable = add(variable);

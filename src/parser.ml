@@ -483,15 +483,28 @@ let declaration stream =
     eat LeftParenthesis stream;
     let parameters = parameters stream in
     eat RightParenthesis stream;
-    eat LeftCurlyBracket stream;
-    let statements = statements stream in
-    eat RightCurlyBracket stream;
-    Ast.FunctionDeclaration {
-        Ast.return_type;
-        Ast.function_name;
-        Ast.parameters;
-        Ast.statements;
-    }
+    (match Stream.peek stream with
+    | Some {token = SemiColon} ->
+            eat SemiColon stream;
+            Ast.FunctionPrototype {
+                Ast.return_type;
+                Ast.function_name;
+                Ast.parameters;
+                Ast.statements = [];
+            }
+    | Some {token = LeftCurlyBracket} ->
+            eat LeftCurlyBracket stream;
+            let statements = statements stream in
+            eat RightCurlyBracket stream;
+            Ast.FunctionDeclaration {
+                Ast.return_type;
+                Ast.function_name;
+                Ast.parameters;
+                Ast.statements;
+            }
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+    | None -> failwith "Unreachable code."
+    )
 
 let rec declarations stream =
     match Stream.peek stream with

@@ -28,7 +28,7 @@ type statement_type =
 
 let functions = Hashtbl.create 10
 
-let add_function name value = Hashtbl.add functions name (Some value)
+let add_function name value = Hashtbl.replace functions name (Some value)
 
 let declare_function name = Hashtbl.add functions name None
 
@@ -292,7 +292,9 @@ and string_of_expression expr = function
     )
 
 let execute = function
-    | FunctionDeclaration { return_type; function_name; parameters; statements } as fnctn ->
+    | FunctionDeclaration { function_name } as fnctn ->
+            add_function function_name fnctn
+    | FunctionPrototype { function_name } as fnctn ->
             add_function function_name fnctn
 
 let interpret filename =

@@ -151,4 +151,5 @@ type function_declaration = {
 type declaration =
     | GlobalConstantDeclaration of constant_declaration
     | FunctionDeclaration of function_declaration
+    | FunctionPrototype of function_declaration
     | GlobalVariableDeclaration of variable_declaration
