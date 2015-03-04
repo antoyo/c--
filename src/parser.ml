@@ -248,7 +248,7 @@ and precedence10 stream =
     match Stream.peek stream with
     | Some {token = Minus} ->
             Stream.junk stream;
-            let expr = factor stream in
+            let expr = expression stream in
             Ast.Negate expr
     | _ -> let expr1 = factor stream in
            precedence15 stream expr1

@@ -20,5 +20,6 @@ int main() {
     printf("%d\n", nombre);
     nombre = max(42, 50);
     printf("%d\n", nombre);
+    printf("%d\n", -max(42, 50));
     return 0;
 }

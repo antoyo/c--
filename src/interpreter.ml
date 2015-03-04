@@ -106,11 +106,10 @@ let rec execute_expression = function
     )
     | Void -> Void
 
-and negate_expression = function
+and negate_expression expression = match execute_expression expression with
     | Int integer -> Int (-integer)
     | Float floating -> Float (-. floating)
-    | Variable _ as variable -> negate_expression (execute_expression variable)
-    | _ -> print_endline "Can only negate an intger or a floating-point number."; Void
+    | _ -> print_endline "Can only negate an integer or a floating-point number."; Void
 
 and call_function { called_function_name; arguments } =
     match get_function called_function_name with

@@ -11,5 +11,6 @@ Feature: Output
         24
         42
         50
+        -50
 
         """
