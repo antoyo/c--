@@ -349,6 +349,7 @@ let next_token file_reader =
     | ' ' | '\n' -> None
     | '=' | '!' | '<' | '>' -> Some (get_comparison_or_logical_operator file_reader)
     | '+' | '-' | '*' | '/' | '%' -> get_arithmetic_or_assignment_operator_or_skip_comment file_reader
+    | '#' -> skip_line_comment file_reader; None
     | '0' .. '9' -> Some (get_number file_reader)
     | '_' | 'A' .. 'Z' | 'a' .. 'z' -> Some (get_identifier file_reader)
     | '"' -> Some (get_string file_reader)

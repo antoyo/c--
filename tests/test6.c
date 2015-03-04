@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int max(int nombre1, int nombre2) {
     if(nombre1 > nombre2) {
         return nombre1;

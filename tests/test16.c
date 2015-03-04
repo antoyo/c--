@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     int nombre = 10 + 2 * 3;
     printf("%d\n", nombre);

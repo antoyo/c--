@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     int variable = 5;
     switch(variable) {

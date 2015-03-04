@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     char* string = "hello world!";
     printf("%c\n", string[0]);

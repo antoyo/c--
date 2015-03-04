@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     float pi = 3.141592;
     printf("%f\n", pi);

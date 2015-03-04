@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     int variable = 12;
     printf("%d\n", variable);

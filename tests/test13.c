@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main() {
     int result = 0;
     if(result == 0) {
