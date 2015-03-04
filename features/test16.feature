@@ -16,5 +16,6 @@ Feature: Output
         -5
         3
         yes
+        -576
 
         """

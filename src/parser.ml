@@ -17,7 +17,6 @@
 
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
- * TODO: parse mathematical expressions with parentheses.
  * TODO: implémenter l’opérateur virgule (et permettre la déclaration de plusieurs variables sur une même ligne).
  * TODO: parser "else if".
  * TODO: parser les opérateurs "&&", "||" et "!".
@@ -220,11 +219,11 @@ and precedence20 stream expr1 =
     match Stream.peek stream with
     | Some {token = Plus} ->
             Stream.junk stream;
-            let expr2 = precedence5 stream in
+            let expr2 = precedence3 stream in
             precedence20 stream (Ast.Operation (Ast.Addition (expr1, expr2)))
     | Some {token = Minus} ->
             Stream.junk stream;
-            let expr2 = precedence5 stream in
+            let expr2 = precedence3 stream in
             precedence20 stream (Ast.Operation (Ast.Subtraction (expr1, expr2)))
     | _ -> precedence30 stream expr1
 
@@ -232,15 +231,15 @@ and precedence15 stream expr1 =
     match Stream.peek stream with
     | Some {token = Star} ->
             Stream.junk stream;
-            let expr2 = factor stream in
+            let expr2 = precedence3 stream in
             precedence15 stream (Ast.Operation (Ast.Multiplication (expr1, expr2)))
     | Some {token = Slash} ->
             Stream.junk stream;
-            let expr2 = factor stream in
+            let expr2 = precedence3 stream in
             precedence15 stream (Ast.Operation (Ast.Division (expr1, expr2)))
     | Some {token = Modulo} ->
             Stream.junk stream;
-            let expr2 = factor stream in
+            let expr2 = precedence3 stream in
             precedence15 stream (Ast.Operation (Ast.Modulo (expr1, expr2)))
     | _ -> expr1
 
@@ -261,9 +260,19 @@ and precedence5 stream =
     | [_; {token = MinusMinus}] -> post_decrementation stream
     | _ ->  precedence10 stream
 
+and precedence3 stream =
+    match Stream.peek stream with
+    | Some {token = LeftParenthesis} ->
+            Stream.junk stream;
+            let expr = expression stream in
+            eat RightParenthesis stream;
+            expr
+    | _ -> precedence5 stream
+
 and expression stream =
-    let expr1 = precedence5 stream in
-    precedence20 stream expr1
+    let expr1 = precedence3 stream in
+    let expr2 = precedence15 stream expr1 in
+    precedence20 stream expr2
 
 and array_index stream =
     let indirection_name = identifier stream in

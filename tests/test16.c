@@ -16,5 +16,7 @@ int main() {
     if(nombre + 40 < 50 - 10) {
         puts("yes");
     }
+
+    printf("%d\n", (10 + (2 * (2 - (10)))) * (100 - 4));
     return 0;
 }
