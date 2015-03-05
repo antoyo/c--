@@ -13,5 +13,8 @@ Feature: Output
         Soit vous êtes mineur, soit vous avez plus de 30 ans.
         Soit vous avez entre 30 et 50 ans, soit vous avez plus de 60 ans.
         Vous n’êtes pas mineur.
+        Soit vous êtes mineur, soit vous avez plus de 50 ans, soit vous avez moins de 40 ans.
+        Vous avez entre 18 et 40 ans.
+        Vous n’êtes pas mineur.
 
         """

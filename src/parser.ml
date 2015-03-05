@@ -16,7 +16,7 @@
  *)
 
 (*
- * TODO: Create helper functions like list_of, ends_with to help creating list of things.
+ * TODO: Utiliser un GADT.
  *)
 
 open Lexer
@@ -50,24 +50,6 @@ let rec either = function
                 Lazy.force expr
             with ParseError _ ->
                 either rest
-
-let optional parsr stream =
-    try
-        Some (parsr stream)
-    with ParseError _ -> None
-
-let separated_by parsr separator stream =
-    let rec separated_by elements =
-        try
-            let element = parsr stream in
-            match Stream.peek stream with
-            | Some {token} when token = separator ->
-                    Stream.junk stream;
-                    separated_by (element :: elements)
-            | _ -> element :: elements
-        with ParseError _ ->
-            elements
-    in List.rev (separated_by [])
 
 let variable_expression variable_name =
     Ast.Variable variable_name
@@ -189,21 +171,25 @@ and ternary_expression stream =
 
 and logical_or_expression stream =
     let expr1 = logical_and_expression stream in
-    match Stream.peek stream with
-    | Some { token = Pipes } ->
-            Stream.junk stream;
-            let expr2 = logical_and_expression stream in
-            Ast.LogicalOr (expr1, expr2)
-    | _ -> expr1
+    let rec logical_or_expressions expr1 =
+        match Stream.peek stream with
+        | Some { token = Pipes } ->
+                Stream.junk stream;
+                let expr2 = logical_and_expression stream in
+                logical_or_expressions (Ast.LogicalOr (expr1, expr2))
+        | _ -> expr1
+    in logical_or_expressions expr1
 
 and logical_and_expression stream =
     let expr1 = relational_expression stream in
-    match Stream.peek stream with
-    | Some { token = Ampersands } ->
-            Stream.junk stream;
-            let expr2 = relational_expression stream in
-            Ast.LogicalAnd (expr1, expr2)
-    | _ -> expr1
+    let rec logical_and_expressions expr1 =
+        match Stream.peek stream with
+        | Some { token = Ampersands } ->
+                Stream.junk stream;
+                let expr2 = relational_expression stream in
+                logical_and_expressions (Ast.LogicalAnd (expr1, expr2))
+        | _ -> expr1
+    in logical_and_expressions expr1
 
 and relational_expression stream =
     let expr1 = additive_expression stream in
@@ -276,7 +262,7 @@ and unary_expression stream =
             Ast.Negate expr
     | Some {token = Not} ->
             Stream.junk stream;
-            let expr = postfix_expression stream in
+            let expr = unary_expression stream in
             Ast.Not expr
     | _ -> postfix_expression stream
 
@@ -363,7 +349,21 @@ let parameter stream =
         Ast.parameter_name;
     }
 
-let rec parameters stream = separated_by parameter Comma stream
+let rec parameters stream =
+    match Stream.peek stream with
+    | Some {token = RightParenthesis} ->
+            []
+    | _ ->
+        let parameter1 = parameter stream in
+        let rec parameters' parameter1 =
+            (match Stream.peek stream with
+            | Some {token = Comma} ->
+                    Stream.junk stream;
+                    let parameter2 = parameter stream in
+                    parameters' (List.append parameter1 [parameter2])
+            | _ -> parameter1
+            )
+        in parameters' [parameter1]
 
 let equal_value stream =
     eat Equal stream;
@@ -387,7 +387,10 @@ let return_statement stream =
 
 let variable_declaration_without_type variable_type stream =
     let variable_name = identifier stream in
-    let variable_value = optional equal_value stream in
+    let variable_value = match Stream.peek stream with
+        | Some {token = Equal} -> Some (equal_value stream)
+        | _ -> None
+    in
     {Ast.variable_type; Ast.variable_name; Ast.variable_value}
 
 let variable_declaration stream =

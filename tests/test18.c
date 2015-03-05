@@ -23,5 +23,17 @@ int main() {
     if(!(age < 18)) {
         puts("Vous n’êtes pas mineur.");
     }
+    if(age < 18 || age > 50 || age < 40) {
+        puts("Soit vous êtes mineur, soit vous avez plus de 50 ans, soit vous avez moins de 40 ans.");
+    }
+    if(age > 18 && age < 50 && age < 40) {
+        puts("Vous avez entre 18 et 40 ans.");
+    }
+    if(!!(age < 18)) {
+        puts("Vous êtes mineur.");
+    }
+    if(!!!(age < 18)) {
+        puts("Vous n’êtes pas mineur.");
+    }
     return 0;
 }
