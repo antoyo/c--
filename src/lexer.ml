@@ -16,9 +16,9 @@
  *)
 
 (*
+ * TODO: enlever les variables globales.
  * TODO: remember the start and end position of each token.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
- * TODO: add the other operators and keywords supported in C.
  *)
 
 type t = {

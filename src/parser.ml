@@ -16,7 +16,8 @@
  *)
 
 (*
- * TODO: Écrire des fonctions pour abstraire les concepts courants (répétitions, optionel).
+ * TODO: Permettre la déclaration de plusieurs constantes sur la même ligne.
+ * TODO: Enlever les variables globales (types).
  * TODO: Utiliser un GADT.
  * TODO: Écrire un point d’extension (ppx) pour rendre plus simple le parseur.
  *)
@@ -44,17 +45,6 @@ let eat token_to_eat stream = match Stream.peek stream with
     | Some {token} when token = token_to_eat -> Stream.junk stream
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
     | None -> failwith "Unreachable code."
-
-let rec either = function
-    | [] -> failwith "Unreachable code."
-    | expr :: rest ->
-            try
-                Lazy.force expr
-            with ParseError _ ->
-                either rest
-
-let variable_expression variable_name =
-    Ast.Variable variable_name
 
 let identifier stream = match Stream.peek stream with
     | Some {token = Identifier identifier} ->
@@ -183,44 +173,53 @@ and logical_or_expression stream =
     in logical_or_expressions expr1
 
 and logical_and_expression stream =
-    let expr1 = relational_expression stream in
+    let expr1 = equality_expression stream in
     let rec logical_and_expressions expr1 =
         match Stream.peek stream with
         | Some { token = Ampersands } ->
                 Stream.junk stream;
-                let expr2 = relational_expression stream in
+                let expr2 = equality_expression stream in
                 logical_and_expressions (Ast.LogicalAnd (expr1, expr2))
         | _ -> expr1
     in logical_and_expressions expr1
 
+and equality_expression stream =
+    let expr1 = relational_expression stream in
+    let rec equality_expressions expr1 =
+        match Stream.peek stream with
+        | Some {token = IsEqual} ->
+                Stream.junk stream;
+                let expr2 = relational_expression stream in
+                equality_expressions (Ast.Equals (expr1, expr2))
+        | Some {token = NotEqual} ->
+                Stream.junk stream;
+                let expr2 = relational_expression stream in
+                equality_expressions (Ast.NotEqual (expr1, expr2))
+        | _ -> expr1
+    in equality_expressions expr1
+
 and relational_expression stream =
     let expr1 = additive_expression stream in
-    match Stream.peek stream with
-    | Some {token = Greater} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.Greater (expr1, expr2)
-    | Some {token = GreaterOrEqual} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.GreaterOrEqual (expr1, expr2)
-    | Some {token = IsEqual} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.Equals (expr1, expr2)
-    | Some {token = Lesser} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.Lesser (expr1, expr2)
-    | Some {token = LesserOrEqual} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.LesserOrEqual (expr1, expr2)
-    | Some {token = NotEqual} ->
-            Stream.junk stream;
-            let expr2 = additive_expression stream in
-            Ast.NotEqual (expr1, expr2)
-    | _ -> expr1
+    let rec relational_expressions expr1 =
+        match Stream.peek stream with
+        | Some {token = Greater} ->
+                Stream.junk stream;
+                let expr2 = additive_expression stream in
+                relational_expressions (Ast.Greater (expr1, expr2))
+        | Some {token = GreaterOrEqual} ->
+                Stream.junk stream;
+                let expr2 = additive_expression stream in
+                relational_expressions (Ast.GreaterOrEqual (expr1, expr2))
+        | Some {token = Lesser} ->
+                Stream.junk stream;
+                let expr2 = additive_expression stream in
+                relational_expressions (Ast.Lesser (expr1, expr2))
+        | Some {token = LesserOrEqual} ->
+                Stream.junk stream;
+                let expr2 = additive_expression stream in
+                relational_expressions (Ast.LesserOrEqual (expr1, expr2))
+        | _ -> expr1
+    in relational_expressions expr1
 
 and additive_expression stream =
     let expr1 = multiplicative_expression stream in
