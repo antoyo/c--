@@ -1,12 +1,9 @@
 *.swp
 tmp
-AUTHORS.txt
-INSTALL.txt
-README.txt
+*.txt
 _build
 _tags
-main.byte
+*.byte
+*.native
 myocamlbuild.ml
-setup.data
-setup.log
-setup.ml
+setup.*
