@@ -22,5 +22,7 @@ int main(int argc, char* argv[]) {
     printf("ac\bb\n");
     printf("%d\n", -42);
     printf("%f\n", -3.141592);
+    printf("%d\n", - -42);
+    printf("%d\n", - - -42);
     return 0;
 }

@@ -16,7 +16,9 @@
  *)
 
 (*
+ * TODO: Écrire des fonctions pour abstraire les concepts courants (répétitions, optionel).
  * TODO: Utiliser un GADT.
+ * TODO: Écrire un point d’extension (ppx) pour rendre plus simple le parseur.
  *)
 
 open Lexer
@@ -258,7 +260,7 @@ and unary_expression stream =
     match Stream.peek stream with
     | Some {token = Minus} ->
             Stream.junk stream;
-            let expr = postfix_expression stream in
+            let expr = unary_expression stream in
             Ast.Negate expr
     | Some {token = Not} ->
             Stream.junk stream;
