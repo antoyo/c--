@@ -58,6 +58,7 @@ type token =
     | Plus
     | PlusEqual
     | PlusPlus
+    | QuestionMark
     | Return
     | RightCurlyBracket
     | RightParenthesis

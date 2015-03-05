@@ -83,6 +83,7 @@ type token =
     | Plus
     | PlusEqual
     | PlusPlus
+    | QuestionMark
     | Return
     | RightCurlyBracket
     | RightParenthesis
@@ -136,6 +137,7 @@ let string_of_token = function
     | { token = Plus } -> "Plus"
     | { token = PlusEqual } -> "PlusEqual"
     | { token = PlusPlus } -> "PlusPlus"
+    | { token = QuestionMark } -> "QuestionMark"
     | { token = Return } -> "Return"
     | { token = RightCurlyBracket } -> "RightCurlyBracket"
     | { token = RightParenthesis } -> "RtParenthesis"
@@ -346,6 +348,7 @@ let next_token file_reader =
     | ':' -> Some Colon
     | ';' -> Some SemiColon
     | ',' -> Some Comma
+    | '?' -> Some QuestionMark
     | ' ' | '\n' -> None
     | '=' | '!' | '<' | '>' -> Some (get_comparison_or_logical_operator file_reader)
     | '+' | '-' | '*' | '/' | '%' -> get_arithmetic_or_assignment_operator_or_skip_comment file_reader

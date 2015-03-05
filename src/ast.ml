@@ -16,9 +16,9 @@
  *)
 
 type expr =
+    | Array of expr array
     | Assignment of assignment
     | AssignmentOperation of assignment_operation
-    | Array of expr array
     | Character of char
     | Decrement of string
     | Equals of expr * expr
@@ -35,6 +35,7 @@ type expr =
     | NotEqual of expr * expr
     | Operation of operation
     | String of string
+    | Ternary of ternary_expression
     | Variable of string
     | Void
 
@@ -66,6 +67,12 @@ and operation =
     | Multiplication of expr * expr
     | Division of expr * expr
     | Modulo of expr * expr
+
+and ternary_expression = {
+    ternary_condition: expr;
+    true_expression: expr;
+    false_expression: expr;
+}
 
 type typ =
     | Type of string

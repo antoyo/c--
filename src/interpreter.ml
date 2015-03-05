@@ -85,6 +85,10 @@ let execute_indirection { indirection_name; indirection_index } =
         )
     )
 
+let int_of_bool = function
+    | true -> 1
+    | false -> 0
+
 let rec execute_expression = function
     | Assignment { variable_name; variable_value } ->
             set_variable_value variable_name (execute_expression variable_value);
@@ -92,19 +96,43 @@ let rec execute_expression = function
     | AssignmentOperation assignment_operation -> execute_assignment_operation assignment_operation
     | Character _ | Float _ | Int _ | String _ as value -> value
     | Decrement variable_name -> change_variable variable_name (fun value -> value - 1)
+    | Equals (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result = 0))
     | FunctionCall { called_function_name = "puts"; arguments = parameters } -> puts parameters; Void
     | FunctionCall { called_function_name = "printf"; arguments = parameters } -> printf parameters; Void
     | FunctionCall function_call -> call_function function_call 
+    | Greater (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result > 0))
+    | GreaterOrEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result >= 0))
+    | Lesser (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result < 0))
+    | LesserOrEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result <= 0))
+    | NotEqual (expression1, expression2) ->
+            let result = compare_expression expression1 expression2 in
+            Int (int_of_bool (result <> 0))
     | Increment variable_name -> change_variable variable_name (fun value -> value + 1)
     | Indirection indirection -> execute_indirection indirection
     | Negate expression -> negate_expression expression
     | Operation operation -> execute_operation operation
+    | Ternary ternary_expression -> execute_ternary ternary_expression
     | Variable variable -> (match get_variable variable with
         | Some value -> execute_expression value
         | None -> print_endline ("The variable " ^ variable ^ " is declared but does not have any value."); Void
         | exception Not_found -> print_endline ("The variable "  ^ variable ^ " is not declared."); Void
     )
     | Void -> Void
+
+and execute_ternary { ternary_condition; true_expression; false_expression } =
+    if is_true ternary_condition
+        then true_expression
+        else false_expression
 
 and negate_expression expression = match execute_expression expression with
     | Int integer -> Int (-integer)
@@ -123,8 +151,10 @@ and call_function { called_function_name; arguments } =
 
 and declare_variable { variable_type; variable_name; variable_value } =
     match variable_value with
-        | Some value -> set_variable_value variable_name (execute_expression value)
-        | None -> declare_variable_without_value variable_name
+        | Some value ->
+                set_variable_value variable_name (execute_expression value)
+        | None ->
+                declare_variable_without_value variable_name
 
 and execute_operation operation =
     let execute_operation expression1 expression2 operator =

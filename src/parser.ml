@@ -18,9 +18,7 @@
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
  * TODO: implémenter l’opérateur virgule (et permettre la déclaration de plusieurs variables sur une même ligne).
- * TODO: parser "else if".
  * TODO: parser les opérateurs "&&", "||" et "!".
- * TODO: parser les conditions ternaires.
  *)
 
 open Lexer
@@ -99,55 +97,36 @@ and arguments stream = separated_by argument Comma stream
 
 and variable_assignment variable_name stream =
     eat Equal stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.Assignment {Ast.variable_name; Ast.variable_value}
 
 and assignment_add variable_name stream =
     eat PlusEqual stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.AssignmentOperation (Ast.AssignAdd (variable_name, variable_value))
 
 and assignment_minus variable_name stream =
     eat MinusEqual stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.AssignmentOperation (Ast.AssignSubtract (variable_name, variable_value))
 
 and assignment_times variable_name stream =
     eat TimesEqual stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.AssignmentOperation (Ast.AssignMultiply (variable_name, variable_value))
 
 and assignment_divide variable_name stream =
     eat DivideEqual stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.AssignmentOperation (Ast.AssignDivide (variable_name, variable_value))
 
 and assignment_modulo variable_name stream =
     eat ModuloEqual stream;
-    let variable_value = expression stream in
+    let variable_value = assignment_expression stream in
     Ast.AssignmentOperation (Ast.AssignModulo (variable_name, variable_value))
 
-and factor stream =
-    match Stream.peek stream with
-    | Some {token = Float floating} ->
-            Stream.junk stream;
-            Ast.Float floating
-    | Some {token = Int integer} ->
-            Stream.junk stream;
-            Ast.Int integer
-    | Some {token = String str} ->
-            Stream.junk stream;
-            Ast.String str
-    | Some {token = Character str} ->
-            Stream.junk stream;
-            Ast.Character str
-    | Some {token = Identifier identifier} ->
-            Stream.junk stream;
-            Ast.Variable identifier
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
-
-and precedence70 stream expr =
+and assignment_expression stream =
+    let expr = ternary_expression stream in
     match Stream.peek stream with
     | Some {token = Equal} ->
             (match expr with
@@ -187,92 +166,122 @@ and precedence70 stream expr =
             )
     | _ -> expr
 
-and precedence30 stream expr1 =
+and ternary_expression stream = 
+    let expr = relational_expression stream in
+    match Stream.peek stream with
+    | Some {token = QuestionMark} ->
+            Stream.junk stream;
+            let true_expression = expression stream in
+            eat Colon stream;
+            let false_expression = ternary_expression stream in
+            Ast.Ternary { Ast.ternary_condition = expr; Ast.true_expression; Ast.false_expression }
+    | _ -> expr
+
+and relational_expression stream =
+    let expr1 = additive_expression stream in
     match Stream.peek stream with
     | Some {token = Greater} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.Greater (expr1, expr2)
     | Some {token = GreaterOrEqual} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.GreaterOrEqual (expr1, expr2)
     | Some {token = IsEqual} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.Equals (expr1, expr2)
     | Some {token = Lesser} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.Lesser (expr1, expr2)
     | Some {token = LesserOrEqual} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.LesserOrEqual (expr1, expr2)
     | Some {token = NotEqual} ->
             Stream.junk stream;
-            let expr2 = expression stream in
+            let expr2 = additive_expression stream in
             Ast.NotEqual (expr1, expr2)
-    | _ -> precedence70 stream expr1
-
-and precedence20 stream expr1 =
-    match Stream.peek stream with
-    | Some {token = Plus} ->
-            Stream.junk stream;
-            let expr2 = precedence3 stream in
-            precedence20 stream (Ast.Operation (Ast.Addition (expr1, expr2)))
-    | Some {token = Minus} ->
-            Stream.junk stream;
-            let expr2 = precedence3 stream in
-            precedence20 stream (Ast.Operation (Ast.Subtraction (expr1, expr2)))
-    | _ -> precedence30 stream expr1
-
-and precedence15 stream expr1 =
-    match Stream.peek stream with
-    | Some {token = Star} ->
-            Stream.junk stream;
-            let expr2 = precedence3 stream in
-            precedence15 stream (Ast.Operation (Ast.Multiplication (expr1, expr2)))
-    | Some {token = Slash} ->
-            Stream.junk stream;
-            let expr2 = precedence3 stream in
-            precedence15 stream (Ast.Operation (Ast.Division (expr1, expr2)))
-    | Some {token = Modulo} ->
-            Stream.junk stream;
-            let expr2 = precedence3 stream in
-            precedence15 stream (Ast.Operation (Ast.Modulo (expr1, expr2)))
     | _ -> expr1
 
-and precedence10 stream =
+and additive_expression stream =
+    let expr1 = multiplicative_expression stream in
+    let rec additive_expressions expr1 =
+        match Stream.peek stream with
+        | Some {token = Plus} ->
+                Stream.junk stream;
+                let expr2 = multiplicative_expression stream in
+                additive_expressions (Ast.Operation (Ast.Addition (expr1, expr2)))
+        | Some {token = Minus} ->
+                Stream.junk stream;
+                let expr2 = multiplicative_expression stream in
+                additive_expressions (Ast.Operation (Ast.Subtraction (expr1, expr2)))
+        | _ -> expr1
+    in additive_expressions expr1
+
+and multiplicative_expression stream =
+    let expr1 = unary_expression stream in
+    let rec multiplicative_expressions expr1 =
+        match Stream.peek stream with
+        | Some {token = Star} ->
+                Stream.junk stream;
+                let expr2 = unary_expression stream in
+                multiplicative_expressions (Ast.Operation (Ast.Multiplication (expr1, expr2)))
+        | Some {token = Slash} ->
+                Stream.junk stream;
+                let expr2 = unary_expression stream in
+                multiplicative_expressions (Ast.Operation (Ast.Division (expr1, expr2)))
+        | Some {token = Modulo} ->
+                Stream.junk stream;
+                let expr2 = unary_expression stream in
+                multiplicative_expressions (Ast.Operation (Ast.Modulo (expr1, expr2)))
+        | _ -> expr1
+    in multiplicative_expressions expr1
+
+and unary_expression stream =
     match Stream.peek stream with
     | Some {token = Minus} ->
             Stream.junk stream;
-            let expr = expression stream in
+            let expr = postfix_expression stream in
             Ast.Negate expr
-    | _ -> let expr1 = factor stream in
-           precedence15 stream expr1
+    | _ -> postfix_expression stream
 
-and precedence5 stream =
+and postfix_expression stream =
     match Stream.npeek 2 stream with
     | [_; {token = LeftParenthesis}] -> function_call stream
     | [_; {token = LeftSquareBracket}] -> array_index stream
     | [_; {token = PlusPlus}] -> post_incrementation stream
     | [_; {token = MinusMinus}] -> post_decrementation stream
-    | _ ->  precedence10 stream
+    | _ ->  primary_expression stream
 
-and precedence3 stream =
+and primary_expression stream =
     match Stream.peek stream with
     | Some {token = LeftParenthesis} ->
             Stream.junk stream;
             let expr = expression stream in
             eat RightParenthesis stream;
             expr
-    | _ -> precedence5 stream
+    | Some {token = Float floating} ->
+            Stream.junk stream;
+            Ast.Float floating
+    | Some {token = Int integer} ->
+            Stream.junk stream;
+            Ast.Int integer
+    | Some {token = String str} ->
+            Stream.junk stream;
+            Ast.String str
+    | Some {token = Character str} ->
+            Stream.junk stream;
+            Ast.Character str
+    | Some {token = Identifier identifier} ->
+            Stream.junk stream;
+            Ast.Variable identifier
+    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
 
 and expression stream =
-    let expr1 = precedence3 stream in
-    let expr2 = precedence15 stream expr1 in
-    precedence20 stream expr2
+    assignment_expression stream
 
 and array_index stream =
     let indirection_name = identifier stream in
@@ -318,8 +327,7 @@ let rec parameters stream = separated_by parameter Comma stream
 
 let equal_value stream =
     eat Equal stream;
-    let expression = expression stream in
-    expression
+    assignment_expression stream
 
 let expression_statement stream =
     let expr = expression stream in
