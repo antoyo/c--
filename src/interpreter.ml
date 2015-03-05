@@ -95,6 +95,9 @@ let rec execute_expression = function
             variable_value
     | AssignmentOperation assignment_operation -> execute_assignment_operation assignment_operation
     | Character _ | Float _ | Int _ | String _ as value -> value
+    | CommaExpression (expression1, expression2) ->
+            let _ = execute_expression expression1 in
+            execute_expression expression2
     | Decrement variable_name -> change_variable variable_name (fun value -> value - 1)
     | Equals (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
@@ -193,7 +196,7 @@ and execute_statement = function
     | Switch switch -> execute_switch switch
     | While _ as while_statement -> execute_while while_statement
     | Return value -> Stack.push value return_values
-    | VariableDeclaration variable_declaration -> declare_variable variable_declaration
+    | VariableDeclarations variable_declarations -> List.iter declare_variable variable_declarations
 
 and compare_expression expression1 expression2 = 
     let value1 = execute_expression expression1 in
@@ -235,7 +238,7 @@ and execute_for for_statement =
 
 and execute_for_initialization = function
     | ForExpression expression -> let _ = execute_expression expression in ()
-    | ForVariableDeclaration variable_declaration -> execute_statement (VariableDeclaration variable_declaration)
+    | ForVariableDeclarations variable_declarations -> execute_statement (VariableDeclarations variable_declarations)
 
 and execute_condition_statements { if_condition; if_statements } =
     if is_true if_condition
@@ -317,14 +320,14 @@ and puts = function
     | _ -> print_endline "One string parameter is expected."
 
 and printf = function
-    | [] -> print_endline "At least one string parameter is expected."
+    | [] -> print_endline "At least one string parameter is expected by the printf function."
     | [expression] -> (match execute_expression expression with
         | String string_literal -> print_string string_literal
-        | _ -> print_endline "The first parameter should be a string."
+        | _ -> print_endline "The first parameter of the printf function should be a string."
     )
     | format_expression :: arguments -> (match execute_expression format_expression with
         | String format_string -> print_string (format_arguments format_string arguments)
-        | _ -> print_endline "The first parameter should be a string."
+        | _ -> print_endline "The first parameter of the printf function should be a string."
     )
 
 and format_arguments format_string = function

@@ -17,7 +17,6 @@
 
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
- * TODO: implémenter l’opérateur virgule (et permettre la déclaration de plusieurs variables sur une même ligne).
  *)
 
 open Lexer
@@ -90,9 +89,21 @@ let post_decrementation stream =
     eat MinusMinus stream;
     Ast.Decrement variable_name
 
-let rec argument stream = expression stream
-
-and arguments stream = separated_by argument Comma stream
+let rec arguments stream =
+    match Stream.peek stream with
+    | Some {token = RightParenthesis} ->
+            []
+    | _ ->
+        let expr1 = assignment_expression stream in
+        let rec arguments' expr1 =
+            (match Stream.peek stream with
+            | Some {token = Comma} ->
+                    Stream.junk stream;
+                    let expr2 = assignment_expression stream in
+                    arguments' (List.append expr1 [expr2])
+            | _ -> expr1
+            )
+        in arguments' [expr1]
 
 and variable_assignment variable_name stream =
     eat Equal stream;
@@ -133,31 +144,31 @@ and assignment_expression stream =
                     variable_assignment variable_name stream
             | _ -> failwith "Expected variable before `=` token."
             )
-    | Some ({token = PlusEqual} as operator_token) ->
+    | Some {token = PlusEqual} ->
             (match expr with
             | Ast.Variable variable_name ->
                     assignment_add variable_name stream
             | _ -> failwith "Expected variable before `+=` token."
             )
-    | Some ({token = MinusEqual} as operator_token) ->
+    | Some {token = MinusEqual} ->
             (match expr with
             | Ast.Variable variable_name ->
                     assignment_minus variable_name stream
             | _ -> failwith "Expected variable before `-=` token."
             )
-    | Some ({token = TimesEqual} as operator_token) ->
+    | Some {token = TimesEqual} ->
             (match expr with
             | Ast.Variable variable_name ->
                     assignment_times variable_name stream
             | _ -> failwith "Expected variable before `*=` token."
             )
-    | Some ({token = DivideEqual} as operator_token) ->
+    | Some {token = DivideEqual} ->
             (match expr with
             | Ast.Variable variable_name ->
                     assignment_divide variable_name stream
             | _ -> failwith "Expected variable before `/=` token."
             )
-    | Some ({token = ModuloEqual} as operator_token) ->
+    | Some {token = ModuloEqual} ->
             (match expr with
             | Ast.Variable variable_name ->
                     assignment_modulo variable_name stream
@@ -302,7 +313,15 @@ and primary_expression stream =
     | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
 
 and expression stream =
-    assignment_expression stream
+    let expr1 = assignment_expression stream in
+    let rec comma_expression expr1 =
+        match Stream.peek stream with
+        | Some {token = Comma} ->
+                Stream.junk stream;
+                let expr2 = assignment_expression stream in
+                comma_expression (Ast.CommaExpression (expr1, expr2))
+        | _ -> expr1
+    in comma_expression expr1
 
 and array_index stream =
     let indirection_name = identifier stream in
@@ -366,16 +385,31 @@ let return_statement stream =
     eat SemiColon stream;
     Ast.Return expression
 
-let variable_declaration stream =
-    let variable_type = typ stream in
+let variable_declaration_without_type variable_type stream =
     let variable_name = identifier stream in
     let variable_value = optional equal_value stream in
     {Ast.variable_type; Ast.variable_name; Ast.variable_value}
 
+let variable_declaration stream =
+    let variable_type = typ stream in
+    variable_declaration_without_type variable_type stream
+
+let variable_declarations stream =
+    let declaration1 = variable_declaration stream in
+    let {Ast.variable_type} = declaration1 in
+    let rec variable_declarations' declaration1 =
+        match Stream.peek stream with
+        | Some {token = Comma} ->
+                Stream.junk stream;
+                let declaration2 = variable_declaration_without_type variable_type stream in
+                variable_declarations' (declaration2 :: declaration1)
+        | _ -> List.rev declaration1
+    in variable_declarations' [declaration1]
+
 let variable_declaration_statement stream =
-    let declaration = variable_declaration stream in
+    let declarations = variable_declarations stream in
     eat SemiColon stream;
-    Ast.VariableDeclaration declaration
+    Ast.VariableDeclarations declarations
 
 let constant_declaration stream =
     eat Const stream;
@@ -492,7 +526,7 @@ and for_initialization stream =
         match Stream.peek stream with
         | Some {token = Identifier identifier} ->
                 let _ = Hashtbl.find types identifier in
-                Ast.ForVariableDeclaration (variable_declaration stream)
+                Ast.ForVariableDeclarations (variable_declarations stream)
         | _ -> failwith "Unreachable code."
     with Not_found ->
         Ast.ForExpression (expression stream)

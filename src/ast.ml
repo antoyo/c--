@@ -20,6 +20,7 @@ type expr =
     | Assignment of assignment
     | AssignmentOperation of assignment_operation
     | Character of char
+    | CommaExpression of expr * expr
     | Decrement of string
     | Equals of expr * expr
     | Float of float
@@ -99,7 +100,7 @@ type variable_declaration = {
 }
 
 type for_initialization =
-    | ForVariableDeclaration of variable_declaration
+    | ForVariableDeclarations of variable_declaration list
     | ForExpression of expr
 
 type statement =
@@ -111,7 +112,7 @@ type statement =
     | If of if_statement
     | Return of expr
     | Switch of switch_statement
-    | VariableDeclaration of variable_declaration
+    | VariableDeclarations of variable_declaration list
     | While of while_statement
 
 and case = {
