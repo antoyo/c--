@@ -18,7 +18,6 @@
 (*
  * TODO: Create helper functions like list_of, ends_with to help creating list of things.
  * TODO: implémenter l’opérateur virgule (et permettre la déclaration de plusieurs variables sur une même ligne).
- * TODO: parser les opérateurs "&&", "||" et "!".
  *)
 
 open Lexer
@@ -167,7 +166,7 @@ and assignment_expression stream =
     | _ -> expr
 
 and ternary_expression stream = 
-    let expr = relational_expression stream in
+    let expr = logical_or_expression stream in
     match Stream.peek stream with
     | Some {token = QuestionMark} ->
             Stream.junk stream;
@@ -176,6 +175,24 @@ and ternary_expression stream =
             let false_expression = ternary_expression stream in
             Ast.Ternary { Ast.ternary_condition = expr; Ast.true_expression; Ast.false_expression }
     | _ -> expr
+
+and logical_or_expression stream =
+    let expr1 = logical_and_expression stream in
+    match Stream.peek stream with
+    | Some { token = Pipes } ->
+            Stream.junk stream;
+            let expr2 = logical_and_expression stream in
+            Ast.LogicalOr (expr1, expr2)
+    | _ -> expr1
+
+and logical_and_expression stream =
+    let expr1 = relational_expression stream in
+    match Stream.peek stream with
+    | Some { token = Ampersands } ->
+            Stream.junk stream;
+            let expr2 = relational_expression stream in
+            Ast.LogicalAnd (expr1, expr2)
+    | _ -> expr1
 
 and relational_expression stream =
     let expr1 = additive_expression stream in
@@ -246,6 +263,10 @@ and unary_expression stream =
             Stream.junk stream;
             let expr = postfix_expression stream in
             Ast.Negate expr
+    | Some {token = Not} ->
+            Stream.junk stream;
+            let expr = postfix_expression stream in
+            Ast.Not expr
     | _ -> postfix_expression stream
 
 and postfix_expression stream =

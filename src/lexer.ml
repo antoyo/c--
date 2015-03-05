@@ -48,6 +48,8 @@ let raise_unexpected_character reader character =
     })
 
 type token =
+    | Ampersand
+    | Ampersands
     | Break
     | Case
     | Character of char
@@ -80,6 +82,8 @@ type token =
     | ModuloEqual
     | Not
     | NotEqual
+    | Pipe
+    | Pipes
     | Plus
     | PlusEqual
     | PlusPlus
@@ -102,6 +106,8 @@ type token_with_position = {
 }
 
 let string_of_token = function
+    | { token = Ampersand } -> "&"
+    | { token = Ampersands } -> "&&"
     | { token = Break } -> "Break"
     | { token = Case } -> "Case"
     | { token = Character c } -> "Character " ^ String.make 1 c
@@ -134,6 +140,8 @@ let string_of_token = function
     | { token = ModuloEqual } -> "ModuloEqual"
     | { token = Not } -> "Not"
     | { token = NotEqual } -> "NotEqual"
+    | { token = Pipe } -> "|"
+    | { token = Pipes } -> "||"
     | { token = Plus } -> "Plus"
     | { token = PlusEqual } -> "PlusEqual"
     | { token = PlusPlus } -> "PlusPlus"
@@ -336,6 +344,12 @@ let get_character reader =
     FileReader.next_char reader;
     token
 
+let get_and_or_logical_and reader =
+    if_match_after reader '&' Ampersands Ampersand
+
+let get_or_or_logical_or reader =
+    if_match_after reader '|' Pipes Pipe
+
 let next_token file_reader =
     match FileReader.get_char file_reader with
     | exception End_of_file -> Some Eof
@@ -349,6 +363,8 @@ let next_token file_reader =
     | ';' -> Some SemiColon
     | ',' -> Some Comma
     | '?' -> Some QuestionMark
+    | '&' -> Some (get_and_or_logical_and file_reader)
+    | '|' -> Some (get_or_or_logical_or file_reader)
     | ' ' | '\n' -> None
     | '=' | '!' | '<' | '>' -> Some (get_comparison_or_logical_operator file_reader)
     | '+' | '-' | '*' | '/' | '%' -> get_arithmetic_or_assignment_operator_or_skip_comment file_reader

@@ -23,6 +23,8 @@ type error_message = {
 }
 
 type token =
+    | Ampersand
+    | Ampersands
     | Break
     | Case
     | Character of char
@@ -55,6 +57,8 @@ type token =
     | ModuloEqual
     | Not
     | NotEqual
+    | Pipe
+    | Pipes
     | Plus
     | PlusEqual
     | PlusPlus

@@ -298,6 +298,12 @@ and is_true = function
     | LesserOrEqual (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
             result <= 0
+    | LogicalAnd (expression1, expression2) ->
+            is_true expression1 && is_true expression2
+    | LogicalOr (expression1, expression2) ->
+            is_true expression1 || is_true expression2
+    | Not expr ->
+            not (is_true expr)
     | NotEqual (expression1, expression2) ->
             let result = compare_expression expression1 expression2 in
             result <> 0
