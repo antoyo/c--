@@ -365,14 +365,36 @@ let rec statements stream =
             let statement = statement stream in
             statement :: statements stream
 
-and if_statement stream =
+and else_if_statements stream =
+    match Stream.npeek 2 stream with
+    | [{token = Else}; {token = If}] ->
+            Stream.junk stream;
+            let condition_statements = if_condition_statements stream in
+            let next_if_statements = else_if_statements stream in
+            condition_statements :: next_if_statements
+    | _ -> []
+
+and if_expression stream =
     eat If stream;
     eat LeftParenthesis stream;
     let if_condition = expression stream in
     eat RightParenthesis stream;
+    if_condition
+
+and bracketed_statements stream =
     eat LeftCurlyBracket stream;
-    let if_statements = statements stream in
+    let statements_bracketed = statements stream in
     eat RightCurlyBracket stream;
+    statements_bracketed
+
+and if_condition_statements stream =
+    let if_condition = if_expression stream in
+    let if_statements = bracketed_statements stream in
+    { Ast.if_condition; Ast.if_statements }
+
+and if_statement stream =
+    let condition_statements = if_condition_statements stream in
+    let else_ifs = else_if_statements stream in
     let else_statements =
         match Stream.peek stream with
         | Some {token = Else} ->
@@ -383,7 +405,7 @@ and if_statement stream =
                 Some statements
         | _ -> None
     in
-    Ast.If { Ast.else_statements; Ast.if_condition; Ast.if_statements }
+    Ast.If { Ast.else_ifs; Ast.else_statements; Ast.condition_statements }
 
 and case_list stream =
     match Stream.peek stream with

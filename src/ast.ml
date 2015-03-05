@@ -121,10 +121,15 @@ and for_statement = {
     for_statements: statement list;
 }
 
-and if_statement = {
-    else_statements: statement list option;
+and if_condition_statements = {
     if_condition: expr;
     if_statements: statement list;
+}
+
+and if_statement = {
+    else_ifs: if_condition_statements list;
+    else_statements: statement list option;
+    condition_statements: if_condition_statements;
 }
 
 and switch_condition =

@@ -5,7 +5,7 @@ Feature: Output
     I want to use the "the output should contain" step
 
     Scenario: Listing home directory
-        When I run `./src/c-- tests/test5.c`
+        When I run `./main.native tests/test5.c`
         Then the output should contain exactly:
         """
         0

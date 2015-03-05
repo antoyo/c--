@@ -11,6 +11,45 @@ int main() {
     else {
         puts("Vous êtes mineur.");
     }
+    if(age >= 18) {
+        puts("Vous êtes majeur.");
+    }
+    else if(age > 12) {
+        puts("Vous êtes un adolescent.");
+    }
+    else if(age < 3) {
+        puts("Vous êtes un bébé.");
+    }
+    else {
+        puts("Vous êtes mineur.");
+    }
+    age = 1;
+    if(age >= 18) {
+        puts("Vous êtes majeur.");
+    }
+    else if(age > 12) {
+        puts("Vous êtes un adolescent.");
+    }
+    else if(age < 3) {
+        puts("Vous êtes un bébé.");
+    }
+    else {
+        puts("Vous êtes mineur.");
+    }
+    age = 15;
+    if(age >= 18) {
+        puts("Vous êtes majeur.");
+    }
+    else if(age > 12) {
+        puts("Vous êtes un adolescent.");
+    }
+    else if(age < 3) {
+        puts("Vous êtes un bébé.");
+    }
+    else {
+        puts("Vous êtes mineur.");
+    }
+    age = 5;
     if(age == 18) {
         puts("Vous avez 18 ans.");
     }

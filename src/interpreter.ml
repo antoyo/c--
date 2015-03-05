@@ -207,13 +207,30 @@ and execute_for_initialization = function
     | ForExpression expression -> let _ = execute_expression expression in ()
     | ForVariableDeclaration variable_declaration -> execute_statement (VariableDeclaration variable_declaration)
 
-and execute_if { else_statements; if_condition; if_statements } = if is_true if_condition then
-            List.iter execute_statement if_statements
-        else (
-            match else_statements with
-            | Some statements -> List.iter execute_statement statements
-            | None -> ()
+and execute_condition_statements { if_condition; if_statements } =
+    if is_true if_condition
+        then (
+            List.iter execute_statement if_statements;
+            true
         )
+        else
+            false
+
+and execute_else_ifs = function
+    | [] -> false
+    | condition_statements :: rest ->
+            if not (execute_condition_statements condition_statements)
+                then execute_else_ifs rest
+                else true
+
+and execute_if { else_ifs; else_statements; condition_statements } =
+    if not (execute_condition_statements condition_statements)
+        then
+        if not (execute_else_ifs else_ifs)
+            then
+                match else_statements with
+                | Some statements -> List.iter execute_statement statements
+                | None -> ()
 
 and execute_switch {switch_expression; switch_conditions} =
     evaluate_cases switch_expression false switch_conditions
