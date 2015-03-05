@@ -16,7 +16,6 @@
  *)
 
 (*
- * TODO: Permettre la déclaration de plusieurs constantes sur la même ligne.
  * TODO: Enlever les variables globales (types).
  * TODO: Utiliser un GADT.
  * TODO: Écrire un point d’extension (ppx) pour rendre plus simple le parseur.
@@ -415,13 +414,28 @@ let variable_declaration_statement stream =
     eat SemiColon stream;
     Ast.VariableDeclarations declarations
 
-let constant_declaration stream =
-    eat Const stream;
-    let constant_type = typ stream in
+let constant_declaration constant_type stream =
     let constant_name = identifier stream in
     let constant_value = equal_value stream in
+    {Ast.constant_type; Ast.constant_name; Ast.constant_value}
+
+let constant_declarations constant_type stream =
+    let declaration1 = constant_declaration constant_type stream in
+    let rec constant_declarations' declaration1 =
+        match Stream.peek stream with
+        | Some {token = Comma} ->
+                Stream.junk stream;
+                let declaration2 = constant_declaration constant_type stream in
+                constant_declarations' (declaration2 :: declaration1)
+        | _ -> List.rev declaration1
+    in constant_declarations' [declaration1]
+
+let constant_declaration_statement stream =
+    eat Const stream;
+    let constant_type = typ stream in
+    let declarations = constant_declarations constant_type stream in
     eat SemiColon stream;
-    Ast.ConstantDeclaration {Ast.constant_type; Ast.constant_name; Ast.constant_value}
+    Ast.ConstantDeclarations declarations
 
 let rec statements stream =
     match Stream.peek stream with
@@ -561,7 +575,7 @@ and statement stream =
                 expression_statement stream
             )
     | Some {token = Const} ->
-            constant_declaration stream
+            constant_declaration_statement stream
     | Some {token = Do} ->
             do_while_statement stream
     | Some {token = For} ->

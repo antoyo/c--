@@ -105,7 +105,7 @@ type for_initialization =
 
 type statement =
     | Break
-    | ConstantDeclaration of constant_declaration
+    | ConstantDeclarations of constant_declaration list
     | DoWhile of do_while_statement
     | Expression of expr
     | For of for_statement

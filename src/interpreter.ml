@@ -188,7 +188,7 @@ and execute_assignment_operation assignment_operation =
     new_value
 
 and execute_statement = function
-    | ConstantDeclaration constant_declaration -> declare_constant constant_declaration
+    | ConstantDeclarations constant_declarations -> List.iter declare_constant constant_declarations
     | DoWhile _ as do_while_statement -> execute_do_while do_while_statement
     | Expression expression -> let _ = execute_expression expression in ()
     | For _ as for_statement -> execute_for for_statement

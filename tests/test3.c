@@ -13,5 +13,7 @@ int main() {
     const int NOMBRE = 10;
     printf("%d\n", NOMBRE);
     printf("%d\n", -variable);
+    const int A = 1, B = 2, C = 3;
+    printf("%d, %d, %d\n", A, B, C);
     return 0;
 }
