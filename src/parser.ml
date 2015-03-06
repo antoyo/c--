@@ -29,7 +29,7 @@ let parse_error error_message error_position =
 
 class parsr lexer =
     object (self)
-        val stream = tokens lexer
+        val stream = lexer#tokens
 
         val types = Hashtbl.create 20
 
@@ -640,8 +640,8 @@ let rec print_tokens stream = match Stream.peek stream with
     | None -> ()
 
 let parse filename =
-    let lexer = create filename in
+    let lexer = new lexer filename in
     let parsr = new parsr lexer in
     let ast = parsr#parse in
-    close lexer;
+    lexer#close;
     ast

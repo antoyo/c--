@@ -15,8 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-type t
-
 type error_message = {
     error_message: string;
     error_position: FileReader.file_position;
@@ -83,14 +81,16 @@ type token_with_position = {
 exception SyntaxError of error_message
 exception UnexpectedCharacter of error_message
 
-val close : t -> unit
-
-val create : string -> t
-
 val string_of_token : token_with_position -> string
 
 val trace : token_with_position -> unit
 
 val trace_stream : token_with_position Stream.t -> unit
 
-val tokens : t -> token_with_position Stream.t
+class lexer : string ->
+    object
+        val reader : FileReader.t
+        method close : unit
+        method tokens : token_with_position Stream.t
+    end
+

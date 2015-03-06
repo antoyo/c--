@@ -16,36 +16,17 @@
  *)
 
 (*
- * TODO: enlever les variables globales.
  * TODO: remember the start and end position of each token.
  * TODO: try to simplify this module (perhaps using character stream in FileReader and an extension point).
  *)
-
-type t = {
-    lexer_file_reader: FileReader.t;
-}
 
 type error_message = {
     error_message: string;
     error_position: FileReader.file_position;
 }
 
-let eof = char_of_int 4
-
 exception SyntaxError of error_message
 exception UnexpectedCharacter of error_message
-
-let raise_syntax_error reader message =
-    raise (SyntaxError {
-        error_message = message;
-        error_position = FileReader.file_position reader;
-    })
-
-let raise_unexpected_character reader character =
-    raise (UnexpectedCharacter {
-        error_message = "Unexpected character `" ^ (Char.escaped character) ^ "`";
-        error_position = FileReader.file_position reader;
-    })
 
 type token =
     | Ampersand
@@ -105,6 +86,26 @@ type token_with_position = {
     token_position: FileReader.file_position;
 }
 
+let eof = char_of_int 4
+
+let keyword_list =
+    [ ("break", Break)
+    ; ("case", Case)
+    ; ("const", Const)
+    ; ("default", Default)
+    ; ("do", Do)
+    ; ("else", Else)
+    ; ("for", For)
+    ; ("if", If)
+    ; ("return", Return)
+    ; ("switch", Switch)
+    ; ("while", While)
+    ]
+
+let keywords = Hashtbl.create (List.length keyword_list)
+
+let () = List.iter (fun (key, value) -> Hashtbl.add keywords key value) keyword_list
+
 let string_of_token = function
     | { token = Ampersand } -> "&"
     | { token = Ampersands } -> "&&"
@@ -158,235 +159,229 @@ let string_of_token = function
     | { token = TimesEqual } -> "TimesEqual"
     | { token = While } -> "While"
 
+let raise_syntax_error reader message =
+   raise (SyntaxError {
+       error_message = message;
+            error_position = FileReader.file_position reader;
+})
+
+let raise_unexpected_character reader character =
+   raise (UnexpectedCharacter {
+       error_message = "Unexpected character `" ^ (Char.escaped character) ^ "`";
+            error_position = FileReader.file_position reader;
+   })
+
 let trace token = print_endline (string_of_token token)
 
 let trace_stream stream = match Stream.peek stream with
     | Some token -> trace token
     | None -> ()
 
-let keyword_list =
-    [ ("break", Break)
-    ; ("case", Case)
-    ; ("const", Const)
-    ; ("default", Default)
-    ; ("do", Do)
-    ; ("else", Else)
-    ; ("for", For)
-    ; ("if", If)
-    ; ("return", Return)
-    ; ("switch", Switch)
-    ; ("while", While)
-    ]
+class lexer filename =
+    object (self)
+        val reader = FileReader.open_file filename
 
-let keywords = Hashtbl.create 10
-let () = List.iter (fun (key, value) -> Hashtbl.add keywords key value) keyword_list
+        method private add_position token = {
+            token;
+            token_position = FileReader.file_position reader;
+        }
 
-let add_position reader token = {
-    token;
-    token_position = FileReader.file_position reader;
-}
+        method close =
+            FileReader.close_file reader
 
-let close lexer =
-    let { lexer_file_reader = file_reader } = lexer in
-    FileReader.close_file file_reader
-
-let if_match_after reader character result_if_true result_if_false =
-    if FileReader.get_next_char reader = character then (
-        FileReader.next_char reader;
-        result_if_true;
-    )
-    else (
-        result_if_false
-    )
-
-let rec skip_block_comment reader =
-    FileReader.next_char reader;
-    match FileReader.get_char reader with
-    | '*' ->
-            FileReader.next_char reader;
-            (match FileReader.get_char reader with
-            | '/' -> FileReader.next_char reader
-            | _ -> skip_block_comment reader)
-    | _ -> skip_block_comment reader
-    | exception End_of_file -> raise_syntax_error reader "Unclosed comment"
-
-let rec skip_line_comment reader =
-    FileReader.next_char reader;
-    match FileReader.get_char reader with
-    | '\n' -> ()
-    | _ -> skip_line_comment reader
-
-let get_arithmetic_or_assignment_operator_or_skip_comment reader =
-    match FileReader.get_char reader with
-    | '+' -> Some (if_match_after reader '=' PlusEqual (if_match_after reader '+' PlusPlus Plus))
-    | '-' -> Some (if_match_after reader '=' MinusEqual (if_match_after reader '-' MinusMinus Minus))
-    | '*' -> Some (if_match_after reader '=' TimesEqual Star)
-    | '/' ->
-            (match FileReader.get_next_char reader with
-            | '/' -> skip_line_comment reader; None
-            | '*' -> FileReader.next_char reader; skip_block_comment reader; None
-            | '=' -> FileReader.next_char reader; Some DivideEqual
-            | _ -> Some Slash
+        method private if_match_after character result_if_true result_if_false =
+            if FileReader.get_next_char reader = character then (
+                FileReader.next_char reader;
+                result_if_true;
             )
-    | '%' -> Some (if_match_after reader '=' ModuloEqual Modulo)
-    | _ -> raise (Invalid_argument "Invalid character")
+            else (
+                result_if_false
+            )
 
-let get_comparison_or_logical_operator reader =
-    match FileReader.get_char reader with
-    | '=' -> if_match_after reader '=' IsEqual Equal
-    | '<' -> if_match_after reader '=' LesserOrEqual Lesser
-    | '>' -> if_match_after reader '=' GreaterOrEqual Greater
-    | '!' -> if_match_after reader '=' NotEqual Not
-    | _ -> raise (Invalid_argument "Invalid character")
-
-let get_decimals reader buffer =
-    let rec get_decimals () =
-        match FileReader.get_next_char reader with
-        | '0' .. '9' as character ->
-                Buffer.add_char buffer character;
-                FileReader.next_char reader;
-                get_decimals ()
-        | _ -> ()
-    in get_decimals ()
-
-let get_exponent reader buffer =
-    match FileReader.get_next_char reader with
-    | 'e' | 'E' as character ->
-            Buffer.add_char buffer character;
+        method private skip_block_comment =
             FileReader.next_char reader;
-            get_decimals reader buffer
-    | _ -> ()
+            match FileReader.get_char reader with
+            | '*' ->
+                    FileReader.next_char reader;
+                    (match FileReader.get_char reader with
+                    | '/' -> FileReader.next_char reader
+                    | _ -> self#skip_block_comment)
+            | _ -> self#skip_block_comment
+            | exception End_of_file -> raise_syntax_error reader "Unclosed comment"
 
-let get_number reader =
-    let buffer = Buffer.create 10 in
-    Buffer.add_char buffer (FileReader.get_char reader);
-    let rec get_number () =
-        match FileReader.get_next_char reader with
-        | '0' .. '9' as character ->
-                Buffer.add_char buffer character;
-                FileReader.next_char reader;
-                get_number ()
-        | '.' ->
-                Buffer.add_char buffer '.';
-                FileReader.next_char reader;
-                get_decimals reader buffer;
-                get_exponent reader buffer;
-                Float (float_of_string (Buffer.contents buffer))
-        | 'e' | 'E' ->
-                Buffer.add_char buffer 'e';
-                FileReader.next_char reader;
-                get_decimals reader buffer;
-                Float (float_of_string (Buffer.contents buffer))
-        | _ ->
-                Int (int_of_string (Buffer.contents buffer))
-    in get_number ()
-
-let get_identifier_or_token str =
-    match Hashtbl.find keywords str with
-    | token -> token
-    | exception Not_found -> Identifier str
-
-let get_identifier reader =
-    let buffer = Buffer.create 10 in
-    Buffer.add_char buffer (FileReader.get_char reader);
-    let rec get_identifier () =
-        match FileReader.get_next_char reader with
-        | '_' | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9'as character ->
-                Buffer.add_char buffer character;
-                FileReader.next_char reader;
-                get_identifier ()
-        | _ ->
-                get_identifier_or_token (Buffer.contents buffer)
-    in get_identifier ()
-
-let escape_char reader = function
-    | 'b' -> '\b'
-    | 'n' -> '\n'
-    | 'r' -> '\r'
-    | 't' -> '\t'
-    | '\\' -> '\\'
-    | '\'' -> '\''
-    | character -> raise_unexpected_character reader character
-
-let escape_char_string reader = function
-    | '"' -> '"'
-    | character -> escape_char reader character
-
-let get_string reader =
-    let rec get_string buffer =
-        match FileReader.get_next_char reader with
-        | '\\' ->
-                FileReader.next_char reader;
-                FileReader.next_char reader;
-                if FileReader.get_char reader <> '\n'
-                    then Buffer.add_char buffer (escape_char_string reader (FileReader.get_char reader));
-                get_string buffer
-        | '"' ->
-                let token = String (Buffer.contents buffer) in
-                FileReader.next_char reader;
-                token
-        | '\n' | '\r' ->
-                raise_syntax_error reader "Unclosed string"
-        | character ->
-                Buffer.add_char buffer character;
-                FileReader.next_char reader;
-                get_string buffer
-    in get_string (Buffer.create 10)
-
-let get_character reader =
-    FileReader.next_char reader;
-    let token = match FileReader.get_char reader with
-    | '\\' ->
+        method private skip_line_comment =
             FileReader.next_char reader;
-            Character (escape_char reader (FileReader.get_char reader))
-    | character -> Character character
-    in
-    FileReader.next_char reader;
-    token
+            match FileReader.get_char reader with
+            | '\n' -> ()
+            | _ -> self#skip_line_comment
 
-let get_and_or_logical_and reader =
-    if_match_after reader '&' Ampersands Ampersand
+        method private get_arithmetic_or_assignment_operator_or_skip_comment =
+            match FileReader.get_char reader with
+            | '+' -> Some (self#if_match_after '=' PlusEqual (self#if_match_after '+' PlusPlus Plus))
+            | '-' -> Some (self#if_match_after '=' MinusEqual (self#if_match_after '-' MinusMinus Minus))
+            | '*' -> Some (self#if_match_after '=' TimesEqual Star)
+            | '/' ->
+                    (match FileReader.get_next_char reader with
+                    | '/' -> self#skip_line_comment; None
+                    | '*' -> FileReader.next_char reader; self#skip_block_comment; None
+                    | '=' -> FileReader.next_char reader; Some DivideEqual
+                    | _ -> Some Slash
+                    )
+            | '%' -> Some (self#if_match_after '=' ModuloEqual Modulo)
+            | _ -> raise (Invalid_argument "Invalid character")
 
-let get_or_or_logical_or reader =
-    if_match_after reader '|' Pipes Pipe
+        method private get_comparison_or_logical_operator =
+            match FileReader.get_char reader with
+            | '=' -> self#if_match_after '=' IsEqual Equal
+            | '<' -> self#if_match_after '=' LesserOrEqual Lesser
+            | '>' -> self#if_match_after '=' GreaterOrEqual Greater
+            | '!' -> self#if_match_after '=' NotEqual Not
+            | _ -> raise (Invalid_argument "Invalid character")
 
-let next_token file_reader =
-    match FileReader.get_char file_reader with
-    | exception End_of_file -> Some Eof
-    | '{' -> Some LeftCurlyBracket
-    | '}' -> Some RightCurlyBracket
-    | '(' -> Some LeftParenthesis
-    | ')' -> Some RightParenthesis
-    | '[' -> Some LeftSquareBracket
-    | ']' -> Some RightSquareBracket
-    | ':' -> Some Colon
-    | ';' -> Some SemiColon
-    | ',' -> Some Comma
-    | '?' -> Some QuestionMark
-    | '&' -> Some (get_and_or_logical_and file_reader)
-    | '|' -> Some (get_or_or_logical_or file_reader)
-    | ' ' | '\n' -> None
-    | '=' | '!' | '<' | '>' -> Some (get_comparison_or_logical_operator file_reader)
-    | '+' | '-' | '*' | '/' | '%' -> get_arithmetic_or_assignment_operator_or_skip_comment file_reader
-    | '#' -> skip_line_comment file_reader; None
-    | '0' .. '9' -> Some (get_number file_reader)
-    | '_' | 'A' .. 'Z' | 'a' .. 'z' -> Some (get_identifier file_reader)
-    | '"' -> Some (get_string file_reader)
-    | '\'' -> Some (get_character file_reader)
-    | character -> raise_unexpected_character file_reader character
+        method private get_decimals buffer =
+            let rec get_decimals () =
+                match FileReader.get_next_char reader with
+                | '0' .. '9' as character ->
+                        Buffer.add_char buffer character;
+                        FileReader.next_char reader;
+                        get_decimals ()
+                | _ -> ()
+            in get_decimals ()
 
-let tokens lexer =
-    let { lexer_file_reader = file_reader } = lexer in
-    let rec tokens stream =
-        let token = next_token file_reader in
-        FileReader.next_char file_reader;
-        (match token with
-        | None ->  tokens stream
-        | Some Eof -> stream
-        | Some token -> tokens (Stream.iapp stream (Stream.ising (add_position file_reader token)))
-        )
-    in tokens Stream.sempty
+        method private get_exponent buffer =
+            match FileReader.get_next_char reader with
+            | 'e' | 'E' as character ->
+                    Buffer.add_char buffer character;
+                    FileReader.next_char reader;
+                    self#get_decimals buffer
+            | _ -> ()
 
-let create filename =
-    let lexer_file_reader = FileReader.open_file filename in
-    { lexer_file_reader }
+        method private get_number =
+            let buffer = Buffer.create 10 in
+            Buffer.add_char buffer (FileReader.get_char reader);
+            let rec get_number () =
+                match FileReader.get_next_char reader with
+                | '0' .. '9' as character ->
+                        Buffer.add_char buffer character;
+                        FileReader.next_char reader;
+                        get_number ()
+                | '.' ->
+                        Buffer.add_char buffer '.';
+                        FileReader.next_char reader;
+                        self#get_decimals buffer;
+                        self#get_exponent buffer;
+                        Float (float_of_string (Buffer.contents buffer))
+                | 'e' | 'E' ->
+                        Buffer.add_char buffer 'e';
+                        FileReader.next_char reader;
+                        self#get_decimals buffer;
+                        Float (float_of_string (Buffer.contents buffer))
+                | _ ->
+                        Int (int_of_string (Buffer.contents buffer))
+            in get_number ()
+
+        method private get_identifier_or_token str =
+            match Hashtbl.find keywords str with
+            | token -> token
+            | exception Not_found -> Identifier str
+
+        method private get_identifier =
+            let buffer = Buffer.create 10 in
+            Buffer.add_char buffer (FileReader.get_char reader);
+            let rec get_identifier () =
+                match FileReader.get_next_char reader with
+                | '_' | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9'as character ->
+                        Buffer.add_char buffer character;
+                        FileReader.next_char reader;
+                        get_identifier ()
+                | _ ->
+                        self#get_identifier_or_token (Buffer.contents buffer)
+            in get_identifier ()
+
+        method private escape_char = function
+            | 'b' -> '\b'
+            | 'n' -> '\n'
+            | 'r' -> '\r'
+            | 't' -> '\t'
+            | '\\' -> '\\'
+            | '\'' -> '\''
+            | character -> raise_unexpected_character reader character
+
+        method private escape_char_string = function
+            | '"' -> '"'
+            | character -> self#escape_char character
+
+        method private get_string =
+            let rec get_string buffer =
+                match FileReader.get_next_char reader with
+                | '\\' ->
+                        FileReader.next_char reader;
+                        FileReader.next_char reader;
+                        if FileReader.get_char reader <> '\n'
+                            then Buffer.add_char buffer (self#escape_char_string (FileReader.get_char reader));
+                        get_string buffer
+                | '"' ->
+                        let token = String (Buffer.contents buffer) in
+                        FileReader.next_char reader;
+                        token
+                | '\n' | '\r' ->
+                        raise_syntax_error reader "Unclosed string"
+                | character ->
+                        Buffer.add_char buffer character;
+                        FileReader.next_char reader;
+                        get_string buffer
+            in get_string (Buffer.create 10)
+
+        method private get_character =
+            FileReader.next_char reader;
+            let token = match FileReader.get_char reader with
+            | '\\' ->
+                    FileReader.next_char reader;
+                    Character (self#escape_char (FileReader.get_char reader))
+            | character -> Character character
+            in
+            FileReader.next_char reader;
+            token
+
+        method private get_and_or_logical_and =
+            self#if_match_after '&' Ampersands Ampersand
+
+        method private get_or_or_logical_or =
+            self#if_match_after '|' Pipes Pipe
+
+        method private next_token =
+            match FileReader.get_char reader with
+            | exception End_of_file -> Some Eof
+            | '{' -> Some LeftCurlyBracket
+            | '}' -> Some RightCurlyBracket
+            | '(' -> Some LeftParenthesis
+            | ')' -> Some RightParenthesis
+            | '[' -> Some LeftSquareBracket
+            | ']' -> Some RightSquareBracket
+            | ':' -> Some Colon
+            | ';' -> Some SemiColon
+            | ',' -> Some Comma
+            | '?' -> Some QuestionMark
+            | '&' -> Some self#get_and_or_logical_and
+            | '|' -> Some self#get_or_or_logical_or
+            | ' ' | '\n' -> None
+            | '=' | '!' | '<' | '>' -> Some self#get_comparison_or_logical_operator
+            | '+' | '-' | '*' | '/' | '%' -> self#get_arithmetic_or_assignment_operator_or_skip_comment
+            | '#' -> self#skip_line_comment; None
+            | '0' .. '9' -> Some self#get_number
+            | '_' | 'A' .. 'Z' | 'a' .. 'z' -> Some self#get_identifier
+            | '"' -> Some self#get_string
+            | '\'' -> Some self#get_character
+            | character -> raise_unexpected_character reader character
+
+        method tokens =
+            let rec tokens stream =
+                let token = self#next_token in
+                FileReader.next_char reader;
+                (match token with
+                | None ->  tokens stream
+                | Some Eof -> stream
+                | Some token -> tokens (Stream.iapp stream (Stream.ising (self#add_position token)))
+                )
+            in tokens Stream.sempty
+    end
