@@ -21,6 +21,7 @@ class parsr : Lexer.lexer ->
     object
         val stream : Lexer.token_with_position Stream.t
         val types : (string, int) Hashtbl.t
+
         method parse : Ast.declaration list
     end
 

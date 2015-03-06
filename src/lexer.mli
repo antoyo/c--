@@ -90,6 +90,7 @@ val trace_stream : token_with_position Stream.t -> unit
 class lexer : string ->
     object
         val reader : FileReader.t
+
         method close : unit
         method tokens : token_with_position Stream.t
     end
