@@ -16,625 +16,632 @@
  *)
 
 (*
- * TODO: Enlever les variables globales (types).
  * TODO: Utiliser un GADT.
  * TODO: Écrire un point d’extension (ppx) pour rendre plus simple le parseur.
  *)
 
 open Lexer
 
-type t = {
-    tokens: token_with_position Stream.t;
-    parser_lexer: Lexer.t;
-}
-
-let types = Hashtbl.create 20
-
-let () =
-    Hashtbl.add types "char" 0;
-    Hashtbl.add types "float" 0;
-    Hashtbl.add types "int" 0
-
 exception ParseError of Lexer.error_message
 
 let parse_error error_message error_position =
     raise (ParseError {error_message; error_position})
 
-let eat token_to_eat stream = match Stream.peek stream with
-    | Some {token} when token = token_to_eat -> Stream.junk stream
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
-    | None -> failwith "Unreachable code."
+class parsr lexer =
+    object (self)
+        val stream = tokens lexer
 
-let identifier stream = match Stream.peek stream with
-    | Some {token = Identifier identifier} ->
-            Stream.junk stream;
-            identifier
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
+        val types = Hashtbl.create 20
 
-let post_incrementation stream =
-    let variable_name = identifier stream in
-    eat PlusPlus stream;
-    Ast.Increment variable_name
+        initializer
+            Hashtbl.add types "char" 0;
+            Hashtbl.add types "float" 0;
+            Hashtbl.add types "int" 0
 
-let post_decrementation stream =
-    let variable_name = identifier stream in
-    eat MinusMinus stream;
-    Ast.Decrement variable_name
+        method parse =
+            self#declarations
 
-let rec arguments stream =
-    match Stream.peek stream with
-    | Some {token = RightParenthesis} ->
-            []
-    | _ ->
-        let expr1 = assignment_expression stream in
-        let rec arguments' expr1 =
-            (match Stream.peek stream with
-            | Some {token = Comma} ->
-                    Stream.junk stream;
-                    let expr2 = assignment_expression stream in
-                    arguments' (List.append expr1 [expr2])
-            | _ -> expr1
-            )
-        in arguments' [expr1]
+        method private eat token_to_eat =
+            match Stream.peek stream with
+            | Some {token} when token = token_to_eat -> self#drop
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
+            | None -> failwith "Unreachable code."
 
-and variable_assignment variable_name stream =
-    eat Equal stream;
-    let variable_value = assignment_expression stream in
-    Ast.Assignment {Ast.variable_name; Ast.variable_value}
+        method private drop =
+            Stream.junk stream
 
-and assignment_add variable_name stream =
-    eat PlusEqual stream;
-    let variable_value = assignment_expression stream in
-    Ast.AssignmentOperation (Ast.AssignAdd (variable_name, variable_value))
+        method private identifier =
+            match Stream.peek stream with
+            | Some {token = Identifier identifier} ->
+                    self#drop;
+                    identifier
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+            | None -> failwith "Unreachable code."
 
-and assignment_minus variable_name stream =
-    eat MinusEqual stream;
-    let variable_value = assignment_expression stream in
-    Ast.AssignmentOperation (Ast.AssignSubtract (variable_name, variable_value))
+        method private post_incrementation =
+            let variable_name = self#identifier in
+            self#eat PlusPlus;
+            Ast.Increment variable_name
 
-and assignment_times variable_name stream =
-    eat TimesEqual stream;
-    let variable_value = assignment_expression stream in
-    Ast.AssignmentOperation (Ast.AssignMultiply (variable_name, variable_value))
+        method private post_decrementation =
+            let variable_name = self#identifier in
+            self#eat MinusMinus;
+            Ast.Decrement variable_name
 
-and assignment_divide variable_name stream =
-    eat DivideEqual stream;
-    let variable_value = assignment_expression stream in
-    Ast.AssignmentOperation (Ast.AssignDivide (variable_name, variable_value))
+        method private arguments =
+            match Stream.peek stream with
+            | Some {token = RightParenthesis} ->
+                    []
+            | _ ->
+                let expr1 = self#assignment_expression in
+                let rec arguments' expr1 =
+                    (match Stream.peek stream with
+                    | Some {token = Comma} ->
+                            self#drop;
+                            let expr2 = self#assignment_expression in
+                            arguments' (List.append expr1 [expr2])
+                    | _ -> expr1
+                    )
+                in arguments' [expr1]
 
-and assignment_modulo variable_name stream =
-    eat ModuloEqual stream;
-    let variable_value = assignment_expression stream in
-    Ast.AssignmentOperation (Ast.AssignModulo (variable_name, variable_value))
+        method private variable_assignment variable_name =
+            self#eat Equal;
+            let variable_value = self#assignment_expression in
+            Ast.Assignment {Ast.variable_name; Ast.variable_value}
 
-and assignment_expression stream =
-    let expr = ternary_expression stream in
-    match Stream.peek stream with
-    | Some {token = Equal} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    variable_assignment variable_name stream
-            | _ -> failwith "Expected variable before `=` token."
-            )
-    | Some {token = PlusEqual} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    assignment_add variable_name stream
-            | _ -> failwith "Expected variable before `+=` token."
-            )
-    | Some {token = MinusEqual} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    assignment_minus variable_name stream
-            | _ -> failwith "Expected variable before `-=` token."
-            )
-    | Some {token = TimesEqual} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    assignment_times variable_name stream
-            | _ -> failwith "Expected variable before `*=` token."
-            )
-    | Some {token = DivideEqual} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    assignment_divide variable_name stream
-            | _ -> failwith "Expected variable before `/=` token."
-            )
-    | Some {token = ModuloEqual} ->
-            (match expr with
-            | Ast.Variable variable_name ->
-                    assignment_modulo variable_name stream
-            | _ -> failwith "Expected variable before `%=` token."
-            )
-    | _ -> expr
+        method private assignment_add variable_name =
+            self#eat PlusEqual;
+            let variable_value = self#assignment_expression in
+            Ast.AssignmentOperation (Ast.AssignAdd (variable_name, variable_value))
 
-and ternary_expression stream = 
-    let expr = logical_or_expression stream in
-    match Stream.peek stream with
-    | Some {token = QuestionMark} ->
-            Stream.junk stream;
-            let true_expression = expression stream in
-            eat Colon stream;
-            let false_expression = ternary_expression stream in
-            Ast.Ternary { Ast.ternary_condition = expr; Ast.true_expression; Ast.false_expression }
-    | _ -> expr
+        method private assignment_minus variable_name =
+            self#eat MinusEqual;
+            let variable_value = self#assignment_expression in
+            Ast.AssignmentOperation (Ast.AssignSubtract (variable_name, variable_value))
 
-and logical_or_expression stream =
-    let expr1 = logical_and_expression stream in
-    let rec logical_or_expressions expr1 =
-        match Stream.peek stream with
-        | Some { token = Pipes } ->
-                Stream.junk stream;
-                let expr2 = logical_and_expression stream in
-                logical_or_expressions (Ast.LogicalOr (expr1, expr2))
-        | _ -> expr1
-    in logical_or_expressions expr1
+        method private assignment_times variable_name =
+            self#eat TimesEqual;
+            let variable_value = self#assignment_expression in
+            Ast.AssignmentOperation (Ast.AssignMultiply (variable_name, variable_value))
 
-and logical_and_expression stream =
-    let expr1 = equality_expression stream in
-    let rec logical_and_expressions expr1 =
-        match Stream.peek stream with
-        | Some { token = Ampersands } ->
-                Stream.junk stream;
-                let expr2 = equality_expression stream in
-                logical_and_expressions (Ast.LogicalAnd (expr1, expr2))
-        | _ -> expr1
-    in logical_and_expressions expr1
+        method private assignment_divide variable_name =
+            self#eat DivideEqual;
+            let variable_value = self#assignment_expression in
+            Ast.AssignmentOperation (Ast.AssignDivide (variable_name, variable_value))
 
-and equality_expression stream =
-    let expr1 = relational_expression stream in
-    let rec equality_expressions expr1 =
-        match Stream.peek stream with
-        | Some {token = IsEqual} ->
-                Stream.junk stream;
-                let expr2 = relational_expression stream in
-                equality_expressions (Ast.Equals (expr1, expr2))
-        | Some {token = NotEqual} ->
-                Stream.junk stream;
-                let expr2 = relational_expression stream in
-                equality_expressions (Ast.NotEqual (expr1, expr2))
-        | _ -> expr1
-    in equality_expressions expr1
+        method private assignment_modulo variable_name =
+            self#eat ModuloEqual;
+            let variable_value = self#assignment_expression in
+            Ast.AssignmentOperation (Ast.AssignModulo (variable_name, variable_value))
 
-and relational_expression stream =
-    let expr1 = additive_expression stream in
-    let rec relational_expressions expr1 =
-        match Stream.peek stream with
-        | Some {token = Greater} ->
-                Stream.junk stream;
-                let expr2 = additive_expression stream in
-                relational_expressions (Ast.Greater (expr1, expr2))
-        | Some {token = GreaterOrEqual} ->
-                Stream.junk stream;
-                let expr2 = additive_expression stream in
-                relational_expressions (Ast.GreaterOrEqual (expr1, expr2))
-        | Some {token = Lesser} ->
-                Stream.junk stream;
-                let expr2 = additive_expression stream in
-                relational_expressions (Ast.Lesser (expr1, expr2))
-        | Some {token = LesserOrEqual} ->
-                Stream.junk stream;
-                let expr2 = additive_expression stream in
-                relational_expressions (Ast.LesserOrEqual (expr1, expr2))
-        | _ -> expr1
-    in relational_expressions expr1
+        method private assignment_expression =
+            let expr = self#ternary_expression in
+            match Stream.peek stream with
+            | Some {token = Equal} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#variable_assignment variable_name
+                    | _ -> failwith "Expected variable before `=` token."
+                    )
+            | Some {token = PlusEqual} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#assignment_add variable_name
+                    | _ -> failwith "Expected variable before `+=` token."
+                    )
+            | Some {token = MinusEqual} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#assignment_minus variable_name
+                    | _ -> failwith "Expected variable before `-=` token."
+                    )
+            | Some {token = TimesEqual} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#assignment_times variable_name
+                    | _ -> failwith "Expected variable before `*=` token."
+                    )
+            | Some {token = DivideEqual} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#assignment_divide variable_name
+                    | _ -> failwith "Expected variable before `/=` token."
+                    )
+            | Some {token = ModuloEqual} ->
+                    (match expr with
+                    | Ast.Variable variable_name ->
+                            self#assignment_modulo variable_name
+                    | _ -> failwith "Expected variable before `%=` token."
+                    )
+            | _ -> expr
 
-and additive_expression stream =
-    let expr1 = multiplicative_expression stream in
-    let rec additive_expressions expr1 =
-        match Stream.peek stream with
-        | Some {token = Plus} ->
-                Stream.junk stream;
-                let expr2 = multiplicative_expression stream in
-                additive_expressions (Ast.Operation (Ast.Addition (expr1, expr2)))
-        | Some {token = Minus} ->
-                Stream.junk stream;
-                let expr2 = multiplicative_expression stream in
-                additive_expressions (Ast.Operation (Ast.Subtraction (expr1, expr2)))
-        | _ -> expr1
-    in additive_expressions expr1
+        method private ternary_expression = 
+            let expr = self#logical_or_expression in
+            match Stream.peek stream with
+            | Some {token = QuestionMark} ->
+                    self#drop;
+                    let true_expression = self#expression in
+                    self#eat Colon;
+                    let false_expression = self#ternary_expression in
+                    Ast.Ternary { Ast.ternary_condition = expr; Ast.true_expression; Ast.false_expression }
+            | _ -> expr
 
-and multiplicative_expression stream =
-    let expr1 = unary_expression stream in
-    let rec multiplicative_expressions expr1 =
-        match Stream.peek stream with
-        | Some {token = Star} ->
-                Stream.junk stream;
-                let expr2 = unary_expression stream in
-                multiplicative_expressions (Ast.Operation (Ast.Multiplication (expr1, expr2)))
-        | Some {token = Slash} ->
-                Stream.junk stream;
-                let expr2 = unary_expression stream in
-                multiplicative_expressions (Ast.Operation (Ast.Division (expr1, expr2)))
-        | Some {token = Modulo} ->
-                Stream.junk stream;
-                let expr2 = unary_expression stream in
-                multiplicative_expressions (Ast.Operation (Ast.Modulo (expr1, expr2)))
-        | _ -> expr1
-    in multiplicative_expressions expr1
+        method private logical_or_expression =
+            let expr1 = self#logical_and_expression in
+            let rec logical_or_expressions expr1 =
+                match Stream.peek stream with
+                | Some { token = Pipes } ->
+                        self#drop;
+                        let expr2 = self#logical_and_expression in
+                        logical_or_expressions (Ast.LogicalOr (expr1, expr2))
+                | _ -> expr1
+            in logical_or_expressions expr1
 
-and unary_expression stream =
-    match Stream.peek stream with
-    | Some {token = Minus} ->
-            Stream.junk stream;
-            let expr = unary_expression stream in
-            Ast.Negate expr
-    | Some {token = Not} ->
-            Stream.junk stream;
-            let expr = unary_expression stream in
-            Ast.Not expr
-    | _ -> postfix_expression stream
+        method private logical_and_expression =
+            let expr1 = self#equality_expression in
+            let rec logical_and_expressions expr1 =
+                match Stream.peek stream with
+                | Some { token = Ampersands } ->
+                        self#drop;
+                        let expr2 = self#equality_expression in
+                        logical_and_expressions (Ast.LogicalAnd (expr1, expr2))
+                | _ -> expr1
+            in logical_and_expressions expr1
 
-and postfix_expression stream =
-    match Stream.npeek 2 stream with
-    | [_; {token = LeftParenthesis}] -> function_call stream
-    | [_; {token = LeftSquareBracket}] -> array_index stream
-    | [_; {token = PlusPlus}] -> post_incrementation stream
-    | [_; {token = MinusMinus}] -> post_decrementation stream
-    | _ ->  primary_expression stream
+        method private equality_expression =
+            let expr1 = self#relational_expression in
+            let rec equality_expressions expr1 =
+                match Stream.peek stream with
+                | Some {token = IsEqual} ->
+                        self#drop;
+                        let expr2 = self#relational_expression in
+                        equality_expressions (Ast.Equals (expr1, expr2))
+                | Some {token = NotEqual} ->
+                        self#drop;
+                        let expr2 = self#relational_expression in
+                        equality_expressions (Ast.NotEqual (expr1, expr2))
+                | _ -> expr1
+            in equality_expressions expr1
 
-and primary_expression stream =
-    match Stream.peek stream with
-    | Some {token = LeftParenthesis} ->
-            Stream.junk stream;
-            let expr = expression stream in
-            eat RightParenthesis stream;
-            expr
-    | Some {token = Float floating} ->
-            Stream.junk stream;
-            Ast.Float floating
-    | Some {token = Int integer} ->
-            Stream.junk stream;
-            Ast.Int integer
-    | Some {token = String str} ->
-            Stream.junk stream;
-            Ast.String str
-    | Some {token = Character str} ->
-            Stream.junk stream;
-            Ast.Character str
-    | Some {token = Identifier identifier} ->
-            Stream.junk stream;
-            Ast.Variable identifier
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
+        method private relational_expression =
+            let expr1 = self#additive_expression in
+            let rec relational_expressions expr1 =
+                match Stream.peek stream with
+                | Some {token = Greater} ->
+                        self#drop;
+                        let expr2 = self#additive_expression in
+                        relational_expressions (Ast.Greater (expr1, expr2))
+                | Some {token = GreaterOrEqual} ->
+                        self#drop;
+                        let expr2 = self#additive_expression in
+                        relational_expressions (Ast.GreaterOrEqual (expr1, expr2))
+                | Some {token = Lesser} ->
+                        self#drop;
+                        let expr2 = self#additive_expression in
+                        relational_expressions (Ast.Lesser (expr1, expr2))
+                | Some {token = LesserOrEqual} ->
+                        self#drop;
+                        let expr2 = self#additive_expression in
+                        relational_expressions (Ast.LesserOrEqual (expr1, expr2))
+                | _ -> expr1
+            in relational_expressions expr1
 
-and expression stream =
-    let expr1 = assignment_expression stream in
-    let rec comma_expression expr1 =
-        match Stream.peek stream with
-        | Some {token = Comma} ->
-                Stream.junk stream;
-                let expr2 = assignment_expression stream in
-                comma_expression (Ast.CommaExpression (expr1, expr2))
-        | _ -> expr1
-    in comma_expression expr1
+        method private additive_expression =
+            let expr1 = self#multiplicative_expression in
+            let rec additive_expressions expr1 =
+                match Stream.peek stream with
+                | Some {token = Plus} ->
+                        self#drop;
+                        let expr2 = self#multiplicative_expression in
+                        additive_expressions (Ast.Operation (Ast.Addition (expr1, expr2)))
+                | Some {token = Minus} ->
+                        self#drop;
+                        let expr2 = self#multiplicative_expression in
+                        additive_expressions (Ast.Operation (Ast.Subtraction (expr1, expr2)))
+                | _ -> expr1
+            in additive_expressions expr1
 
-and array_index stream =
-    let indirection_name = identifier stream in
-    eat LeftSquareBracket stream;
-    let indirection_index = expression stream in
-    eat RightSquareBracket stream;
-    Ast.Indirection {Ast.indirection_name; Ast.indirection_index}
+        method private multiplicative_expression =
+            let expr1 = self#unary_expression in
+            let rec multiplicative_expressions expr1 =
+                match Stream.peek stream with
+                | Some {token = Star} ->
+                        self#drop;
+                        let expr2 = self#unary_expression in
+                        multiplicative_expressions (Ast.Operation (Ast.Multiplication (expr1, expr2)))
+                | Some {token = Slash} ->
+                        self#drop;
+                        let expr2 = self#unary_expression in
+                        multiplicative_expressions (Ast.Operation (Ast.Division (expr1, expr2)))
+                | Some {token = Modulo} ->
+                        self#drop;
+                        let expr2 = self#unary_expression in
+                        multiplicative_expressions (Ast.Operation (Ast.Modulo (expr1, expr2)))
+                | _ -> expr1
+            in multiplicative_expressions expr1
 
-and function_call stream =
-    let called_function_name = identifier stream in
-    eat LeftParenthesis stream;
-    let arguments = arguments stream in
-    eat RightParenthesis stream;
-    Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
+        method private unary_expression =
+            match Stream.peek stream with
+            | Some {token = Minus} ->
+                    self#drop;
+                    let expr = self#unary_expression in
+                    Ast.Negate expr
+            | Some {token = Not} ->
+                    self#drop;
+                    let expr = self#unary_expression in
+                    Ast.Not expr
+            | _ -> self#postfix_expression
 
-let rec array_type typ stream = match Stream.peek stream with
-    | Some {token = LeftSquareBracket} ->
-            eat LeftSquareBracket stream;
-            eat RightSquareBracket stream;
-            array_type (Ast.Pointer typ) stream
-    | _ -> typ
+        method private postfix_expression =
+            match Stream.npeek 2 stream with
+            | [_; {token = LeftParenthesis}] -> self#function_call
+            | [_; {token = LeftSquareBracket}] -> self#array_index
+            | [_; {token = PlusPlus}] -> self#post_incrementation
+            | [_; {token = MinusMinus}] -> self#post_decrementation
+            | _ -> self#primary_expression
 
-let rec pointer_type typ stream = match Stream.peek stream with
-    | Some {token = Star} ->
-        Stream.junk stream;
-        pointer_type (Ast.Pointer typ) stream
-    | _ -> typ
+        method private primary_expression =
+            match Stream.peek stream with
+            | Some {token = LeftParenthesis} ->
+                    self#drop;
+                    let expr = self#expression in
+                    self#eat RightParenthesis;
+                    expr
+            | Some {token = Float floating} ->
+                    self#drop;
+                    Ast.Float floating
+            | Some {token = Int integer} ->
+                    self#drop;
+                    Ast.Int integer
+            | Some {token = String str} ->
+                    self#drop;
+                    Ast.String str
+            | Some {token = Character str} ->
+                    self#drop;
+                    Ast.Character str
+            | Some {token = Identifier identifier} ->
+                    self#drop;
+                    Ast.Variable identifier
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position
+            | None -> failwith "Unreachable code."
 
-let typ stream =
-    let typ = identifier stream in
-    pointer_type (Ast.Type typ) stream
+        method private expression =
+            let expr1 = self#assignment_expression in
+            let rec comma_expression expr1 =
+                match Stream.peek stream with
+                | Some {token = Comma} ->
+                        self#drop;
+                        let expr2 = self#assignment_expression in
+                        comma_expression (Ast.CommaExpression (expr1, expr2))
+                | _ -> expr1
+            in comma_expression expr1
 
-let parameter stream =
-    let parameter_type = typ stream in
-    let parameter_name = identifier stream in
-    let parameter_type = array_type parameter_type stream in
-    {
-        Ast.parameter_type;
-        Ast.parameter_name;
-    }
+        method private array_index =
+            let indirection_name = self#identifier in
+            self#eat LeftSquareBracket;
+            let indirection_index = self#expression in
+            self#eat RightSquareBracket;
+            Ast.Indirection {Ast.indirection_name; Ast.indirection_index}
 
-let rec parameters stream =
-    match Stream.peek stream with
-    | Some {token = RightParenthesis} ->
-            []
-    | _ ->
-        let parameter1 = parameter stream in
-        let rec parameters' parameter1 =
-            (match Stream.peek stream with
-            | Some {token = Comma} ->
-                    Stream.junk stream;
-                    let parameter2 = parameter stream in
-                    parameters' (List.append parameter1 [parameter2])
-            | _ -> parameter1
-            )
-        in parameters' [parameter1]
+        method private function_call =
+            let called_function_name = self#identifier in
+            self#eat LeftParenthesis;
+            let arguments = self#arguments in
+            self#eat RightParenthesis;
+            Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
 
-let equal_value stream =
-    eat Equal stream;
-    assignment_expression stream
+        method private array_type typ =
+            match Stream.peek stream with
+            | Some {token = LeftSquareBracket} ->
+                    self#eat LeftSquareBracket;
+                    self#eat RightSquareBracket;
+                    self#array_type (Ast.Pointer typ)
+            | _ -> typ
 
-let expression_statement stream =
-    let expr = expression stream in
-    eat SemiColon stream;
-    Ast.Expression expr
+        method private pointer_type typ =
+            match Stream.peek stream with
+            | Some {token = Star} ->
+                self#drop;
+                self#pointer_type (Ast.Pointer typ)
+            | _ -> typ
 
-let break_statement stream =
-    eat Break stream;
-    eat SemiColon stream;
-    Ast.Break
+        method private typ =
+            let typ = self#identifier in
+            self#pointer_type (Ast.Type typ)
 
-let return_statement stream =
-    eat Return stream;
-    let expression = expression stream in
-    eat SemiColon stream;
-    Ast.Return expression
+        method private parameter =
+            let parameter_type = self#typ in
+            let parameter_name = self#identifier in
+            let parameter_type = self#array_type parameter_type in
+            {
+                Ast.parameter_type;
+                Ast.parameter_name;
+            }
 
-let variable_declaration_without_type variable_type stream =
-    let variable_name = identifier stream in
-    let variable_value = match Stream.peek stream with
-        | Some {token = Equal} -> Some (equal_value stream)
-        | _ -> None
-    in
-    {Ast.variable_type; Ast.variable_name; Ast.variable_value}
+        method private parameters =
+            match Stream.peek stream with
+            | Some {token = RightParenthesis} ->
+                    []
+            | _ ->
+                let parameter1 = self#parameter in
+                let rec parameters' parameter1 =
+                    (match Stream.peek stream with
+                    | Some {token = Comma} ->
+                            self#drop;
+                            let parameter2 = self#parameter in
+                            parameters' (List.append parameter1 [parameter2])
+                    | _ -> parameter1
+                    )
+                in parameters' [parameter1]
 
-let variable_declaration stream =
-    let variable_type = typ stream in
-    variable_declaration_without_type variable_type stream
+        method private equal_value =
+            self#eat Equal;
+            self#assignment_expression
 
-let variable_declarations stream =
-    let declaration1 = variable_declaration stream in
-    let {Ast.variable_type} = declaration1 in
-    let rec variable_declarations' declaration1 =
-        match Stream.peek stream with
-        | Some {token = Comma} ->
-                Stream.junk stream;
-                let declaration2 = variable_declaration_without_type variable_type stream in
-                variable_declarations' (declaration2 :: declaration1)
-        | _ -> List.rev declaration1
-    in variable_declarations' [declaration1]
+        method private expression_statement =
+            let expr = self#expression in
+            self#eat SemiColon;
+            Ast.Expression expr
 
-let variable_declaration_statement stream =
-    let declarations = variable_declarations stream in
-    eat SemiColon stream;
-    Ast.VariableDeclarations declarations
+        method private break_statement =
+            self#eat Break;
+            self#eat SemiColon;
+            Ast.Break
 
-let constant_declaration constant_type stream =
-    let constant_name = identifier stream in
-    let constant_value = equal_value stream in
-    {Ast.constant_type; Ast.constant_name; Ast.constant_value}
+        method private return_statement =
+            self#eat Return;
+            let expr = self#expression in
+            self#eat SemiColon;
+            Ast.Return expr
 
-let constant_declarations constant_type stream =
-    let declaration1 = constant_declaration constant_type stream in
-    let rec constant_declarations' declaration1 =
-        match Stream.peek stream with
-        | Some {token = Comma} ->
-                Stream.junk stream;
-                let declaration2 = constant_declaration constant_type stream in
-                constant_declarations' (declaration2 :: declaration1)
-        | _ -> List.rev declaration1
-    in constant_declarations' [declaration1]
+        method private variable_declaration_without_type variable_type =
+            let variable_name = self#identifier in
+            let variable_value = match Stream.peek stream with
+                | Some {token = Equal} -> Some (self#equal_value)
+                | _ -> None
+            in
+            {Ast.variable_type; Ast.variable_name; Ast.variable_value}
 
-let constant_declaration_statement stream =
-    eat Const stream;
-    let constant_type = typ stream in
-    let declarations = constant_declarations constant_type stream in
-    eat SemiColon stream;
-    Ast.ConstantDeclarations declarations
+        method private variable_declaration =
+            let variable_type = self#typ in
+            self#variable_declaration_without_type variable_type
 
-let rec statements stream =
-    match Stream.peek stream with
-    | Some {token = RightCurlyBracket} -> []
-    | Some {token = Case} -> []
-    | Some {token = Default} -> []
-    | _ ->
-            let statement = statement stream in
-            statement :: statements stream
+        method private variable_declarations =
+            let declaration1 = self#variable_declaration in
+            let {Ast.variable_type} = declaration1 in
+            let rec variable_declarations' declaration1 =
+                match Stream.peek stream with
+                | Some {token = Comma} ->
+                        self#drop;
+                        let declaration2 = self#variable_declaration_without_type variable_type in
+                        variable_declarations' (declaration2 :: declaration1)
+                | _ -> List.rev declaration1
+            in variable_declarations' [declaration1]
 
-and else_if_statements stream =
-    match Stream.npeek 2 stream with
-    | [{token = Else}; {token = If}] ->
-            Stream.junk stream;
-            let condition_statements = if_condition_statements stream in
-            let next_if_statements = else_if_statements stream in
-            condition_statements :: next_if_statements
-    | _ -> []
+        method private variable_declaration_statement =
+            let declarations = self#variable_declarations in
+            self#eat SemiColon;
+            Ast.VariableDeclarations declarations
 
-and if_expression stream =
-    eat If stream;
-    eat LeftParenthesis stream;
-    let if_condition = expression stream in
-    eat RightParenthesis stream;
-    if_condition
+        method private constant_declaration constant_type =
+            let constant_name = self#identifier in
+            let constant_value = self#equal_value in
+            {Ast.constant_type; Ast.constant_name; Ast.constant_value}
 
-and bracketed_statements stream =
-    eat LeftCurlyBracket stream;
-    let statements_bracketed = statements stream in
-    eat RightCurlyBracket stream;
-    statements_bracketed
+        method private constant_declarations constant_type =
+            let declaration1 = self#constant_declaration constant_type in
+            let rec constant_declarations' declaration1 =
+                match Stream.peek stream with
+                | Some {token = Comma} ->
+                        self#drop;
+                        let declaration2 = self#constant_declaration constant_type in
+                        constant_declarations' (declaration2 :: declaration1)
+                | _ -> List.rev declaration1
+            in constant_declarations' [declaration1]
 
-and if_condition_statements stream =
-    let if_condition = if_expression stream in
-    let if_statements = bracketed_statements stream in
-    { Ast.if_condition; Ast.if_statements }
+        method private constant_declaration_statement =
+            self#eat Const;
+            let constant_type = self#typ in
+            let declarations = self#constant_declarations constant_type in
+            self#eat SemiColon;
+            Ast.ConstantDeclarations declarations
 
-and if_statement stream =
-    let condition_statements = if_condition_statements stream in
-    let else_ifs = else_if_statements stream in
-    let else_statements =
-        match Stream.peek stream with
-        | Some {token = Else} ->
-                Stream.junk stream;
-                eat LeftCurlyBracket stream;
-                let statements = statements stream in
-                eat RightCurlyBracket stream;
-                Some statements
-        | _ -> None
-    in
-    Ast.If { Ast.else_ifs; Ast.else_statements; Ast.condition_statements }
+        method private statements =
+            match Stream.peek stream with
+            | Some {token = RightCurlyBracket} -> []
+            | Some {token = Case} -> []
+            | Some {token = Default} -> []
+            | _ ->
+                    let statement = self#statement in
+                    statement :: self#statements
 
-and case_list stream =
-    match Stream.peek stream with
-    | Some {token = RightCurlyBracket} -> []
-    | Some {token = Case} ->
-            Stream.junk stream;
-            let case_condition = expression stream in
-            eat Colon stream;
-            let case_instructions = statements stream in
-            let next_cases = case_list stream in
-            Ast.Case {Ast.case_condition; Ast.case_instructions} :: next_cases
-    | Some {token = Default} ->
-            Stream.junk stream;
-            eat Colon stream;
-            let statements = statements stream in
-            let next_cases = case_list stream in
-            Ast.Default statements :: next_cases
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
+        method private else_if_statements =
+            match Stream.npeek 2 stream with
+            | [{token = Else}; {token = If}] ->
+                    self#drop;
+                    let condition_statements = self#if_condition_statements in
+                    let next_if_statements = self#else_if_statements in
+                    condition_statements :: next_if_statements
+            | _ -> []
 
-and switch_statement stream =
-    eat Switch stream;
-    eat LeftParenthesis stream;
-    let switch_expression = expression stream in
-    eat RightParenthesis stream;
-    eat LeftCurlyBracket stream;
-    let switch_conditions = case_list stream in
-    eat RightCurlyBracket stream;
-    Ast.Switch { Ast.switch_expression; Ast.switch_conditions }
+        method private if_expression =
+            self#eat If;
+            self#eat LeftParenthesis;
+            let if_condition = self#expression in
+            self#eat RightParenthesis;
+            if_condition
 
-and while_statement stream =
-    eat While stream;
-    eat LeftParenthesis stream;
-    let while_condition = expression stream in
-    eat RightParenthesis stream;
-    eat LeftCurlyBracket stream;
-    let while_statements = statements stream in
-    eat RightCurlyBracket stream;
-    Ast.While { Ast.while_condition; Ast.while_statements }
+        method private bracketed_statements =
+            self#eat LeftCurlyBracket;
+            let statements_bracketed = self#statements in
+            self#eat RightCurlyBracket;
+            statements_bracketed
 
-and do_while_statement stream =
-    eat Do stream;
-    eat LeftCurlyBracket stream;
-    let while_statements = statements stream in
-    eat RightCurlyBracket stream;
-    eat While stream;
-    eat LeftParenthesis stream;
-    let while_condition = expression stream in
-    eat RightParenthesis stream;
-    eat SemiColon stream;
-    Ast.While { Ast.while_condition; Ast.while_statements }
+        method private if_condition_statements =
+            let if_condition = self#if_expression in
+            let if_statements = self#bracketed_statements in
+            { Ast.if_condition; Ast.if_statements }
 
-and for_initialization stream =
-    try
-        match Stream.peek stream with
-        | Some {token = Identifier identifier} ->
-                let _ = Hashtbl.find types identifier in
-                Ast.ForVariableDeclarations (variable_declarations stream)
-        | _ -> failwith "Unreachable code."
-    with Not_found ->
-        Ast.ForExpression (expression stream)
+        method private if_statement =
+            let condition_statements = self#if_condition_statements in
+            let else_ifs = self#else_if_statements in
+            let else_statements =
+                match Stream.peek stream with
+                | Some {token = Else} ->
+                        self#drop;
+                        self#eat LeftCurlyBracket;
+                        let statements = self#statements in
+                        self#eat RightCurlyBracket;
+                        Some statements
+                | _ -> None
+            in
+            Ast.If { Ast.else_ifs; Ast.else_statements; Ast.condition_statements }
 
-and for_statement stream =
-    eat For stream;
-    eat LeftParenthesis stream;
-    let for_init = for_initialization stream in
-    eat SemiColon stream;
-    let for_condition = expression stream in
-    eat SemiColon stream;
-    let for_increment = expression stream in
-    eat RightParenthesis stream;
-    eat LeftCurlyBracket stream;
-    let for_statements = statements stream in
-    eat RightCurlyBracket stream;
-    Ast.For { Ast.for_init; Ast.for_condition; Ast.for_increment; Ast.for_statements }
+        method private case_list =
+            match Stream.peek stream with
+            | Some {token = RightCurlyBracket} -> []
+            | Some {token = Case} ->
+                    self#drop;
+                    let case_condition = self#expression in
+                    self#eat Colon;
+                    let case_instructions = self#statements in
+                    let next_cases = self#case_list in
+                    Ast.Case {Ast.case_condition; Ast.case_instructions} :: next_cases
+            | Some {token = Default} ->
+                    self#drop;
+                    self#eat Colon;
+                    let statements = self#statements in
+                    let next_cases = self#case_list in
+                    Ast.Default statements :: next_cases
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+            | None -> failwith "Unreachable code."
 
-and statement stream =
-    match Stream.peek stream with
-    | Some {token = Break} -> break_statement stream
-    | Some {token = Return} -> return_statement stream
-    | Some {token = Identifier identifier} ->
-            (try
-                let _ = Hashtbl.find types identifier in
-                variable_declaration_statement stream
+        method private switch_statement =
+            self#eat Switch;
+            self#eat LeftParenthesis;
+            let switch_expression = self#expression in
+            self#eat RightParenthesis;
+            self#eat LeftCurlyBracket;
+            let switch_conditions = self#case_list in
+            self#eat RightCurlyBracket;
+            Ast.Switch { Ast.switch_expression; Ast.switch_conditions }
+
+        method private while_statement =
+            self#eat While;
+            self#eat LeftParenthesis;
+            let while_condition = self#expression in
+            self#eat RightParenthesis;
+            self#eat LeftCurlyBracket;
+            let while_statements = self#statements in
+            self#eat RightCurlyBracket;
+            Ast.While { Ast.while_condition; Ast.while_statements }
+
+        method private do_while_statement =
+            self#eat Do;
+            self#eat LeftCurlyBracket;
+            let while_statements = self#statements in
+            self#eat RightCurlyBracket;
+            self#eat While;
+            self#eat LeftParenthesis;
+            let while_condition = self#expression in
+            self#eat RightParenthesis;
+            self#eat SemiColon;
+            Ast.While { Ast.while_condition; Ast.while_statements }
+
+        method private for_initialization =
+            try
+                match Stream.peek stream with
+                | Some {token = Identifier identifier} ->
+                        let _ = Hashtbl.find types identifier in
+                        Ast.ForVariableDeclarations (self#variable_declarations)
+                | _ -> failwith "Unreachable code."
             with Not_found ->
-                expression_statement stream
+                Ast.ForExpression (self#expression)
+
+        method private for_statement =
+            self#eat For;
+            self#eat LeftParenthesis;
+            let for_init = self#for_initialization in
+            self#eat SemiColon;
+            let for_condition = self#expression in
+            self#eat SemiColon;
+            let for_increment = self#expression in
+            self#eat RightParenthesis;
+            self#eat LeftCurlyBracket;
+            let for_statements = self#statements in
+            self#eat RightCurlyBracket;
+            Ast.For { Ast.for_init; Ast.for_condition; Ast.for_increment; Ast.for_statements }
+
+        method private statement =
+            match Stream.peek stream with
+            | Some {token = Break} -> self#break_statement
+            | Some {token = Return} -> self#return_statement
+            | Some {token = Identifier identifier} ->
+                    (try
+                        let _ = Hashtbl.find types identifier in
+                        self#variable_declaration_statement
+                    with Not_found ->
+                        self#expression_statement
+                    )
+            | Some {token = Const} ->
+                    self#constant_declaration_statement
+            | Some {token = Do} ->
+                    self#do_while_statement
+            | Some {token = For} ->
+                    self#for_statement
+            | Some {token = If} ->
+                    self#if_statement
+            | Some {token = Switch} ->
+                    self#switch_statement
+            | Some {token = While} ->
+                    self#while_statement
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+            | None -> failwith "Unreachable code."
+
+        method private declaration =
+            let return_type = self#typ in
+            let function_name = self#identifier in
+            self#eat LeftParenthesis;
+            let parameters = self#parameters in
+            self#eat RightParenthesis;
+            (match Stream.peek stream with
+            | Some {token = SemiColon} ->
+                    self#eat SemiColon;
+                    Ast.FunctionPrototype {
+                        Ast.return_type;
+                        Ast.function_name;
+                        Ast.parameters;
+                        Ast.statements = [];
+                    }
+            | Some {token = LeftCurlyBracket} ->
+                    self#eat LeftCurlyBracket;
+                    let statements = self#statements in
+                    self#eat RightCurlyBracket;
+                    Ast.FunctionDeclaration {
+                        Ast.return_type;
+                        Ast.function_name;
+                        Ast.parameters;
+                        Ast.statements;
+                    }
+            | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
+            | None -> failwith "Unreachable code."
             )
-    | Some {token = Const} ->
-            constant_declaration_statement stream
-    | Some {token = Do} ->
-            do_while_statement stream
-    | Some {token = For} ->
-            for_statement stream
-    | Some {token = If} ->
-            if_statement stream
-    | Some {token = Switch} ->
-            switch_statement stream
-    | Some {token = While} ->
-            while_statement stream
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
 
-let declaration stream =
-    let return_type = typ stream in
-    let function_name = identifier stream in
-    eat LeftParenthesis stream;
-    let parameters = parameters stream in
-    eat RightParenthesis stream;
-    (match Stream.peek stream with
-    | Some {token = SemiColon} ->
-            eat SemiColon stream;
-            Ast.FunctionPrototype {
-                Ast.return_type;
-                Ast.function_name;
-                Ast.parameters;
-                Ast.statements = [];
-            }
-    | Some {token = LeftCurlyBracket} ->
-            eat LeftCurlyBracket stream;
-            let statements = statements stream in
-            eat RightCurlyBracket stream;
-            Ast.FunctionDeclaration {
-                Ast.return_type;
-                Ast.function_name;
-                Ast.parameters;
-                Ast.statements;
-            }
-    | Some ({token_position} as token) -> parse_error ("Unexpected token " ^ string_of_token token) token_position 
-    | None -> failwith "Unreachable code."
-    )
-
-let rec declarations stream =
-    match Stream.peek stream with
-    | Some {token = Eof} | None -> []
-    | Some token ->
-        let declaration = declaration stream in
-        declaration :: declarations stream
+        method private declarations =
+            match Stream.peek stream with
+            | Some {token = Eof} | None -> []
+            | Some token ->
+                let declaration = self#declaration in
+                declaration :: self#declarations
+end
 
 let rec print_tokens stream = match Stream.peek stream with
     | Some token -> trace token; Stream.junk stream; print_tokens stream
     | None -> ()
 
-let start parser_lexer =
-    let tokens = tokens parser_lexer in
-    declarations tokens
-
 let parse filename =
     let lexer = create filename in
-    let ast = start lexer in
+    let parsr = new parsr lexer in
+    let ast = parsr#parse in
     close lexer;
     ast

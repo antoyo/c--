@@ -17,4 +17,11 @@
 
 exception ParseError of Lexer.error_message
 
+class parsr : Lexer.t ->
+    object
+        val stream : Lexer.token_with_position Stream.t
+        val types : (string, int) Hashtbl.t
+        method parse : Ast.declaration list
+    end
+
 val parse : string -> Ast.declaration list
