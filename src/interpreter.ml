@@ -354,8 +354,9 @@ let execute = function
 
 let interpret filename =
     let ast = FileParser.parse filename in
-    List.iter execute ast;
-    if List.length ast > 0
+    let typed_ast = SemanticAnalyzer.analyze ast in
+    List.iter execute typed_ast;
+    if List.length typed_ast > 0
         then
             match get_function "main" with
             | Some (FunctionDeclaration {parameters}) ->

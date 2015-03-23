@@ -16,7 +16,7 @@
  *)
 
 (*
- * TODO: Utiliser un GADT.
+ * TODO: Utiliser un GADT (faire un analyseur sémantique qui transforme un AST non typé en un AST typé).
  * TODO: Écrire un point d’extension (ppx) pour rendre plus simple le parseur.
  *)
 

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2014  Boucher, Antoni <bouanto@gmail.com>
+ * Copyright (C) 2015  Boucher, Antoni <bouanto@gmail.com>
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,10 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-let parse filename =
-    try
-        Parser.parse filename
-    with Parser.ParseError parse_error ->
-        let {Lexer.error_message; Lexer.error_position} = parse_error in
-        Utils.print_error error_message error_position;
-        []
+let curry f (a, b) = f a b
+
+let print_error message position =
+    let {FileReader.position_filename = file; FileReader.position_line = line; FileReader.position_column = column} = position in
+    print_string file;
+    print_char ':';
+    print_int line;
+    print_char ':';
+    print_int column;
+    print_string ": ";
+    print_string message;
+    print_string " on line ";
+    print_int line;
+    print_endline "."
+
+let uncurry f a b = f (a, b)
