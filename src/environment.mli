@@ -76,3 +76,5 @@ class environment :
         method look_declaration : string -> declaration option
         method look_type : string -> ty option
     end
+
+val string_of_ty : ty -> string

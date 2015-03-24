@@ -22,7 +22,7 @@ class parsr : Lexer.lexer ->
         val stream : Lexer.token_with_position Stream.t
         val types : (string, int) Hashtbl.t
 
-        method parse : Ast.declaration list
+        method parse : Ast.file
     end
 
-val parse : string -> Ast.declaration list
+val parse : string -> Ast.file

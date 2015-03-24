@@ -15,4 +15,4 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-val analyze : Ast.declaration list -> Ast.declaration list
+val analyze : Ast.file -> Ast.file

@@ -203,6 +203,11 @@ class parsr lexer =
                 | _ -> List.rev declaration1
             in constant_declarations' [declaration1]
 
+        method private current_position =
+            match Stream.peek stream with
+            | Some {token_position} -> token_position
+            | None -> failwith "Unreachable code."
+
         method private declaration =
             let return_type = self#typ in
             let function_name = self#identifier in
@@ -329,11 +334,12 @@ class parsr lexer =
             Ast.For { Ast.for_init; Ast.for_condition; Ast.for_increment; Ast.for_statements }
 
         method private function_call =
+            let file_position = self#current_position in
             let called_function_name = self#identifier in
             self#eat LeftParenthesis;
             let arguments = self#arguments in
             self#eat RightParenthesis;
-            Ast.FunctionCall {Ast.called_function_name; Ast.arguments}
+            Ast.FunctionCall {Ast.called_function_name; Ast.arguments; Ast.file_position}
 
         method private identifier =
             match Stream.peek stream with
@@ -437,7 +443,7 @@ class parsr lexer =
                 in parameters' [parameter1]
 
         method parse =
-            self#declarations
+            Ast.File self#declarations
 
         method private pointer_type typ =
             match Stream.peek stream with

@@ -1,4 +1,5 @@
 *.swp
+*.swo
 tmp
 *.txt
 _build

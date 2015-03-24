@@ -34,32 +34,58 @@ let ty_of_typ = function
     | Ast.Type "char" -> Char
     | Ast.Type "int" -> Int
 
+let check_list (check_function: 'a -> bool) (list: 'a list): bool =
+    let rec check result = function
+        | [] -> result
+        | x :: xs ->
+                let new_result = check_function x in
+                check (result && new_result) xs
+    in check true list
+
+let ty_of_expression = function
+    | Ast.Int _ -> Int
+    | Ast.String _ -> Pointer Char
+
+let check_lists_match check_function list1 list2 =
+    let rec check result list1 list2 = match (list1, list2) with
+        | ([], []) -> result
+        (* check count mismatch *)
+        | (x :: xs, y :: ys) ->
+                let new_result = check_function x y in
+                check (result && new_result) xs ys
+    in check true list1 list2
+
 let ty_of_parameter { Ast.parameter_type } = ty_of_typ parameter_type
 
 class analyzer (environment: Environment.environment) =
     object (self)
+        val mutable errors = ([| |] : Lexer.error_message array)
+
+        method private add_error error =
+            errors <- Array.append errors [| error |]
+
         method private add_parameter {Ast.parameter_type; Ast.parameter_name} =
-            environment#add_declaration parameter_name (VariableDec (ty_of_typ parameter_type))
+            environment#add_declaration parameter_name (VariableDec (ty_of_typ parameter_type));
+            true
 
         method private check_expression = function
-            | Ast.FunctionCall {Ast.called_function_name; Ast.arguments} ->
+            | Ast.FunctionCall {Ast.called_function_name; Ast.arguments; Ast.file_position} ->
                     (match environment#look_declaration called_function_name with
-                    | Some _ -> ()
-                    | None -> raise (SemanticError { Lexer.error_message = "Undefined function `" ^ called_function_name ^ "`"
-                                                   (* TODO: put real error position *)
-                                                   ; Lexer.error_position = {
-                                                       position_column = 0;
-                                                       position_filename = "";
-                                                       position_line = 0;
-                                                   }})
+                    | Some (FunctionDec {Environment.parameters}) ->
+                            check_lists_match self#expression_matches_type parameters arguments
+                            (* TODO: check argument type. *)
+                    | Some (VariableDec _) -> true (* TODO: cannot call a variable. *)
+                    | None ->  self#add_error
+                               { Lexer.error_message = "Undefined function `" ^ called_function_name ^ "`"
+                               ; Lexer.error_position = file_position};
+                               false
                     )
-                    (* TODO: check argument type and return type. *)
-            | _ -> () (* TODO: check other expression *)
+            | _ -> true (* TODO: check other expression *)
 
         method private check_function (Ast.FunctionDeclaration { Ast.statements }) =
-            List.iter self#check_statement statements
+            check_list self#check_statement statements
 
-        method check_global_declaration : Ast.declaration -> unit = function
+        method private check_global_declaration = function
             | Ast.FunctionDeclaration { Ast.function_name; Ast.parameters; Ast.return_type } as fnctn ->
                     (match environment#look_declaration function_name with
                     | Some declaration -> () (* TODO: check type with existing, and check that it is not the second declaration *)
@@ -69,24 +95,49 @@ class analyzer (environment: Environment.environment) =
                                 })
                     );
                     environment#enter_scope;
-                    List.iter self#add_parameter parameters;
-                    self#check_function fnctn;
-                    environment#leave_scope
+                    check_list self#add_parameter parameters;
+                    let valid = self#check_function fnctn in
+                    environment#leave_scope;
+                    valid
             (*| FunctionPrototype { function_name } as fnctn ->*)
                     (*add_function function_name fnctn*)
+                    
+        method check_global_declarations = function
+            | Ast.File declarations ->
+                    check_list self#check_global_declaration declarations
+            | Ast.NoFile -> false
 
         method private check_statement = function
             | Ast.Expression expression -> self#check_expression expression
-            | Ast.Return expression -> () (* TODO: check that the return value has the right type *)
+            | Ast.Return expression -> true (* TODO: check that the return value has the right type *)
+
+        method private expression_matches_type ty expression =
+            if ty = ty_of_expression expression
+                then true
+                else (
+                    self#add_error
+                    { Lexer.error_message = "expected `" ^ string_of_ty ty ^ "`, but argument is of type `" ^ string_of_ty (ty_of_expression expression) ^ "`"
+                    (* TODO: add real position *)
+                    ; Lexer.error_position = {
+                        position_column = 1;
+                        position_filename = "";
+                        position_line = 1;
+                    }};
+                    false
+                )
+
+        method errors = errors
     end
 
 let analyze ast =
     let environment = new Environment.environment in
     let analyzer = new analyzer environment in
-    try
-        List.iter analyzer#check_global_declaration ast;
-        ast
-    with SemanticError semantic_error ->
-        let {Lexer.error_message; Lexer.error_position} = semantic_error in
-        Utils.print_error error_message error_position;
-        []
+    if analyzer#check_global_declarations ast
+        then ast
+        else
+            let errors = analyzer#errors in
+            Array.iter (fun error ->
+                let {Lexer.error_message; Lexer.error_position} = error in
+                Utils.print_error error_message error_position
+            ) errors;
+            Ast.NoFile

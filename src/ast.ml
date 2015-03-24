@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
+open FileReader
+
 type expr =
     | Array of expr array
     | Assignment of assignment
@@ -58,6 +60,7 @@ and assignment_operation =
 and function_call = {
     called_function_name: string;
     arguments: expr list;
+    file_position: file_position;
 }
 
 and indirection = {
@@ -169,3 +172,7 @@ type declaration =
     | FunctionDeclaration of function_declaration
     | FunctionPrototype of function_declaration
     | GlobalVariableDeclaration of variable_declaration
+
+type file =
+    | File of declaration list
+    | NoFile

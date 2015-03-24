@@ -355,19 +355,27 @@ let execute = function
 let interpret filename =
     let ast = FileParser.parse filename in
     let typed_ast = SemanticAnalyzer.analyze ast in
-    List.iter execute typed_ast;
-    if List.length typed_ast > 0
-        then
-            match get_function "main" with
-            | Some (FunctionDeclaration {parameters}) ->
-                    let _ =
-                    match List.length parameters with
-                    | 0 -> execute_expression (FunctionCall { called_function_name = "main"; arguments = [] })
-                    | 2 ->  let argc = Ast.Int (Array.length Sys.argv) in
-                            let argv = Ast.Array (Array.map (fun str -> Ast.String str) Sys.argv) in
-                            execute_expression (FunctionCall { called_function_name = "main"; arguments = [argc; argv] })
-                    | _ -> print_endline "Wrong number of parameters for the main function."; Ast.String "Error"
-                    in ()
-                    
-            | None -> print_endline "Error: no main function."
-        else ()
+    match typed_ast with
+    | File declarations ->
+        List.iter execute declarations;
+        if List.length declarations > 0
+            then
+                let file_position = {
+                    FileReader.position_column = 1;
+                    FileReader.position_filename = filename;
+                    FileReader.position_line = 1;
+                } in
+                match get_function "main" with
+                | Some (FunctionDeclaration {parameters}) ->
+                        let _ =
+                        match List.length parameters with
+                        | 0 -> execute_expression (FunctionCall { called_function_name = "main"; arguments = []; file_position })
+                        | 2 ->  let argc = Ast.Int (Array.length Sys.argv) in
+                                let argv = Ast.Array (Array.map (fun str -> Ast.String str) Sys.argv) in
+                                execute_expression (FunctionCall { called_function_name = "main"; arguments = [argc; argv]; file_position })
+                        | _ -> print_endline "Wrong number of parameters for the main function."; Ast.String "Error"
+                        in ()
+                        
+                | None -> print_endline "Error: no main function."
+            else ()
+    | NoFile -> ()

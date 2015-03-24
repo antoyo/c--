@@ -21,4 +21,4 @@ let parse filename =
     with Parser.ParseError parse_error ->
         let {Lexer.error_message; Lexer.error_position} = parse_error in
         Utils.print_error error_message error_position;
-        []
+        Ast.NoFile

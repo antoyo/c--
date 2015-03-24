@@ -81,3 +81,8 @@ class environment =
                 then Some (StringMap.find key map)
                 else None
     end
+
+let rec string_of_ty = function
+    | Char -> "char"
+    | Int -> "int"
+    | Pointer ty -> string_of_ty ty ^ "*"
